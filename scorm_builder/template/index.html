@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Video Quiz</title>
+<style>
+#quiz {
+  display: none;
+  position: absolute;
+  top: 10%;
+  left: 10%;
+  width: 80%;
+  background: rgba(255,255,255,0.9);
+  padding: 20px;
+  border-radius: 8px;
+}
+video { width: 100%; }
+</style>
+<script src="scorm_api.js"></script>
+<script src="questions.js"></script>
+</head>
+<body>
+<div style="position: relative; width: 640px; margin: auto;">
+<video id="video" controls>
+  <source src="{{VIDEO}}" type="video/mp4">
+</video>
+<div id="quiz"></div>
+</div>
+<script>
+var api = pipwerks.SCORM;
+api.version = "1.2";
+var connected = api.init();
+var questions = QUESTIONS;
+var video = document.getElementById('video');
+var quizDiv = document.getElementById('quiz');
+var quizShown = false;
+function buildQuiz(){
+  var html = '<form id="qform">';
+  questions.forEach(function(q,i){
+    html += '<p>'+q.question+'</p>';
+    q.options.forEach(function(opt,j){
+      html += '<label><input type="radio" name="q'+i+'" value="'+j+'"> '+opt+'</label><br>';
+    });
+  });
+  html += '<button type="button" onclick="submitQuiz()">Submit</button>';
+  html += '</form>';
+  quizDiv.innerHTML = html;
+}
+function showQuiz(){
+  if(quizShown) return;
+  quizShown = true;
+  video.pause();
+  buildQuiz();
+  quizDiv.style.display = 'block';
+}
+function submitQuiz(){
+  var form = document.getElementById('qform');
+  var correct = 0;
+  questions.forEach(function(q,i){
+    var ans = form['q'+i].value;
+    if(ans==q.answer){ correct++; }
+  });
+  var score = Math.round((correct/questions.length)*100);
+  if(connected){
+    api.set('cmi.core.score.raw', score);
+    api.set('cmi.core.lesson_status', 'completed');
+    api.save();
+    api.quit();
+  }
+  quizDiv.innerHTML = '<p>Your score: '+score+'</p>';
+}
+video.addEventListener('timeupdate', function(){
+  if(video.duration - video.currentTime <= 10){
+    showQuiz();
+  }
+});
+</script>
+</body>
+</html>
