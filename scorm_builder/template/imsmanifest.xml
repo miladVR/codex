@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<manifest identifier="videoquiz" version="1" xmlns="http://www.imsproject.org/xsd/imscp_rootv1p1p2">
+  <metadata>
+    <schema>ADL SCORM</schema>
+    <schemaversion>1.2</schemaversion>
+  </metadata>
+  <organizations default="org1">
+    <organization identifier="org1">
+      <title>Video Quiz</title>
+      <item identifier="item1" identifierref="res1">
+        <title>Video Quiz</title>
+      </item>
+    </organization>
+  </organizations>
+  <resources>
+    <resource identifier="res1" type="webcontent" adlcp:scormtype="sco" href="index.html" xmlns:adlcp="http://www.adlnet.org/xsd/adlcp_rootv1p2">
+      <file href="index.html"/>
+      <file href="scorm_api.js"/>
+      <file href="questions.js"/>
+      <file href="{{VIDEO}}"/>
+    </resource>
+  </resources>
+</manifest>
