@@ -1,0 +1,28 @@
+name: Cloze Studio checks
+
+on:
+  push:
+    paths:
+      - 'cloze-studio/**'
+      - '.github/workflows/cloze-studio-tests.yml'
+  pull_request:
+    paths:
+      - 'cloze-studio/**'
+      - '.github/workflows/cloze-studio-tests.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  worksheet-checks:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v6
+      - name: Check JavaScript syntax
+        run: |
+          node --check cloze-studio/dist/core.js
+          node --check cloze-studio/dist/app.js
+      - name: Check worksheet behavior
+        run: node --test cloze-studio/tests/core.test.cjs

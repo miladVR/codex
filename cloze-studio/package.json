@@ -1,0 +1,12 @@
+{
+  "name": "cloze-studio",
+  "version": "1.0.0",
+  "private": true,
+  "description": "A dependency-free English and Persian gap-fill worksheet builder.",
+  "license": "MIT",
+  "scripts": {
+    "test": "node --test tests/core.test.cjs",
+    "check": "node --check dist/core.js && node --check dist/app.js"
+  },
+  "engines": { "node": ">=20" }
+}
