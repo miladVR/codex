@@ -2,7 +2,7 @@
 
 **Your own worksheet, from questions to a branded printable handout.**
 
-[Open the public app](https://cloze-studio.vrcenter-ir.chatgpt.site) · [Share teacher feedback](https://github.com/miladVR/codex/issues/2) · [راهنمای فارسی](README.fa.md) · [What's new in 1.1.0](CHANGELOG.md) · [Contributing](CONTRIBUTING.md) · [MIT license](LICENSE)
+[Open the public app](https://cloze-studio.vrcenter-ir.chatgpt.site) · [Share teacher feedback](https://github.com/miladVR/codex/issues/2) · [راهنمای فارسی](README.fa.md) · [What's new in 1.1.1](CHANGELOG.md) · [Contributing](CONTRIBUTING.md) · [MIT license](LICENSE)
 
 Cloze Studio is a dependency-free worksheet builder for language teachers. Combine five question types, add an institution or teacher name and logo, choose a page format, and print the complete worksheet with a separate answer key.
 
@@ -30,7 +30,7 @@ The original English and Persian samples can be loaded into each section. Questi
 
 ## Try it online
 
-Open **[Cloze Studio](https://cloze-studio.vrcenter-ir.chatgpt.site)**. The app is public and does not require an app account, subscription or API key. Select **English** in the top bar if needed, load an example, and try a short worksheet. Print or save your work as PDF before closing the page.
+Open **[Cloze Studio](https://cloze-studio.vrcenter-ir.chatgpt.site)**. The app is public and does not require an app account, subscription or API key. The interface opens in English; use **فارسی** in the top bar to switch to Persian, load an example, and try a short worksheet. Print or save your work as PDF before closing the page.
 
 ## Download for offline use
 
@@ -40,7 +40,7 @@ Open **[Cloze Studio](https://cloze-studio.vrcenter-ir.chatgpt.site)**. The app 
 4. Select **Print preview**, then **Print / save PDF**.
 5. Select **Save as PDF** or your printer. Disable the browser's own headers and footers for a clean worksheet.
 
-The interface starts in Persian. Use **English** in the top bar to switch. Changing **Worksheet language** does not translate your questions; it changes worksheet labels and direction. Each section has examples in both languages.
+The interface starts in English. Use **فارسی** in the top bar to switch to Persian, and **English** to switch back. Refreshing opens the interface in English again. Changing **Worksheet language** does not translate your questions; it changes worksheet labels and direction. Each section has examples in both languages.
 
 ## Privacy and session limits
 

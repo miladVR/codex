@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.1.1 — 2026-09-10
+
+- Open the interface in English by default, addressing ESL Treasures feedback.
+- Keep English/Persian switching and independent worksheet-language selection.
+- Render English HTML labels and left-to-right layout before JavaScript loads.
+
+
 ## 1.1.0 — 2026-09-10
 
 - Redesigned the editor with question-type cards, separate branding and page settings, and a responsive worksheet preview.

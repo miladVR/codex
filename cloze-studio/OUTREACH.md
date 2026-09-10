@@ -5,7 +5,7 @@ Updated: 2026-09-10
 - Public app: https://cloze-studio.vrcenter-ir.chatgpt.site
 - Source: https://github.com/miladVR/codex/tree/main/cloze-studio
 - Teacher feedback: https://github.com/miladVR/codex/issues/2
-- Release described here: 1.1.0
+- Release described here: 1.1.1
 
 ## Current publication record
 
@@ -13,8 +13,8 @@ Updated: 2026-09-10
 | --- | --- |
 | Live app | Public access enabled and confirmed in Sites settings. |
 | GitHub | Public app/source introduction and bilingual feedback thread published. |
-| ESL Treasures / Grandomastery | Submitted by email to the official address hello@grandomastery.com, signed Milad Rabiei. Gmail confirmed SENT. Editorial acceptance and listing remain pending. |
-| Reddit r/ESL_Teachers | Draft prepared; account sign-in and live posting checks required; not posted. |
+| ESL Treasures / Grandomastery | Submitted by email to the official address hello@grandomastery.com, signed Milad Rabiei. Gmail confirmed SENT. The founder confirmed by email that the app was added; requested an English default and a retry of the repaired submission form. |
+| Reddit r/ESL_Teachers | Submitted with Helpful Materials flair: https://www.reddit.com/r/ESL_Teachers/comments/1wchehv/free_worksheet_builder_for_esl_teachers_five/ . Last checked: awaiting moderator approval. |
 | Reddit r/SideProject | Draft prepared; account sign-in and live posting checks required; not posted. |
 
 No forum publication or editorial acceptance is implied by a prepared draft. Check current community rules before submitting. Do not promise continuing support, response times, or classroom outcomes.
@@ -29,7 +29,7 @@ It lets you combine gap-fill, multiple-choice, true/false, matching and short-an
 
 Try it: https://cloze-studio.vrcenter-ir.chatgpt.site
 
-It starts in Persian; click English in the top bar to switch the interface. Worksheet language is a separate setting. Sample questions are included so you can explore before writing your own.
+It starts in English; click فارسی in the top bar for Persian, then English to switch back. Worksheet language is a separate setting. Sample questions are included so you can explore before writing your own.
 
 No app account or API key is required. You write the questions; it doesn't generate or assess them. Text and logos stay in browser memory, and refreshing clears the current worksheet, so export before leaving.
 
@@ -49,19 +49,19 @@ Five question types can share one worksheet and numbered answer key: gap-fill, m
 Live app: https://cloze-studio.vrcenter-ir.chatgpt.site
 Source: https://github.com/miladVR/codex/tree/main/cloze-studio
 
-No app account, API key or backend is required. The interface starts in Persian; use the English button at the top. You write the questions yourself. The downloaded app also runs locally. There is no session saving yet, so export to PDF before refreshing.
+No app account, API key or backend is required. The interface starts in English; use فارسی at the top for Persian. You write the questions yourself. The downloaded app also runs locally. There is no session saving yet, so export to PDF before refreshing.
 
 I'd value feedback on the first-use experience and printed output, especially from people who teach or make classroom materials. You can reply here or use https://github.com/miladVR/codex/issues/2.
 
 ## ESL Treasures — submitted via official email route
 
-Submitted under the name **Milad Rabiei** with the owner's authorization. The website form rejected a valid app URL because its “Your Website” field applied an email-address validation rule. The official email route was used instead. Subject: **ESL Treasures submission: Cloze Studio — free worksheet builder for language teachers**. Sending is confirmed; no editorial acceptance or public listing has been confirmed.
+Submitted under the name **Milad Rabiei** with the owner's authorization. The website form rejected a valid app URL because its “Your Website” field applied an email-address validation rule. The official email route was used instead. Subject: **ESL Treasures submission: Cloze Studio — free worksheet builder for language teachers**. The founder subsequently confirmed by email that the app was added, requested English as the default, and asked for a retry of the repaired website form.
 
 Please consider Cloze Studio for the ESL Treasures resource collection.
 
 Cloze Studio is a free, open-source worksheet builder for language teachers, initiated by an English teacher and developed with AI assistance. Teachers can combine gap-fill, multiple-choice, true/false, matching and short-answer sections, add their own name and logo, choose A4, A5, Letter or Legal paper, and print a separate answer key or save the worksheet as PDF.
 
-The app is public and requires no app account, subscription or API key. It opens in Persian; the English button in the top bar switches the interface. Worksheet language is configured separately. Each question type includes sample content.
+The app is public and requires no app account, subscription or API key. It opens in English; the فارسی / English button in the top bar switches the interface. Worksheet language is configured separately. Each question type includes sample content.
 
 Teachers write their own questions; the app does not generate or assess their educational content. Lesson text and logos are processed locally in the browser. Work is currently cleared on refresh, so users should export before leaving.
 

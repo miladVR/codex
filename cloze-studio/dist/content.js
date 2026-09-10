@@ -1,6 +1,6 @@
 /* Interface strings and original sample questions. */
 window.ClozeContent = {
-  "version": "1.1.0",
+  "version": "1.1.1",
   "copy": {
     "fa": {
       "skip": "رفتن به محیط ساخت تمرین",

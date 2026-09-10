@@ -1,4 +1,4 @@
-/* Cloze Studio 1.1.0. User content is always rendered with text nodes. */
+/* Cloze Studio 1.1.1. User content is always rendered with text nodes. */
 (function () {
   'use strict';
   const Core = window.ClozeCore;
@@ -6,7 +6,7 @@
   const $ = id => document.getElementById(id);
   const TYPES = ['cloze', 'mcq', 'tf', 'matching', 'short'];
   const NAMES = {cloze:'typeCloze',mcq:'typeMcq',tf:'typeTf',matching:'typeMatching',short:'typeShort'};
-  const state = {ui:'fa',sheet:'en',title:'',institution:'',logo:'',logoBusy:false,logoRequest:0,paper:'A4',orientation:'portrait',text:'',selected:new Set(),bank:true,key:true,tab:'edit',active:'cloze',enabled:{cloze:true,mcq:true,tf:true,matching:true,short:true},mcq:[],tf:[],matching:[],short:[],nextId:1,triedPrint:false};
+  const state = {ui:'en',sheet:'en',title:'',institution:'',logo:'',logoBusy:false,logoRequest:0,paper:'A4',orientation:'portrait',text:'',selected:new Set(),bank:true,key:true,tab:'edit',active:'cloze',enabled:{cloze:true,mcq:true,tf:true,matching:true,short:true},mcq:[],tf:[],matching:[],short:[],nextId:1,triedPrint:false};
   const t = (key, locale) => Content.copy[locale || state.ui][key];
   const number = (value, locale) => new Intl.NumberFormat(locale || state.ui,{useGrouping:false}).format(value);
   function el(tag, className, text) {const node=document.createElement(tag);if(className)node.className=className;if(text!==undefined)node.textContent=text;return node;}
@@ -19,6 +19,7 @@
     document.querySelectorAll('[data-i18n]').forEach(node=>{node.textContent=t(node.dataset.i18n);});
     document.querySelectorAll('[data-placeholder]').forEach(node=>{node.placeholder=t(node.dataset.placeholder);});
     $('language-toggle').textContent=state.ui==='fa'?'English':'فارسی';$('language-toggle').lang=state.ui==='fa'?'en':'fa';
+    $('language-toggle').setAttribute('aria-label',state.ui==='fa'?'Switch interface to English':'تغییر زبان رابط به فارسی');
     $('view-tabs').setAttribute('aria-label',t('views'));
     $('question-types').setAttribute('aria-label',t('question'));
     document.querySelector('.work-area').setAttribute('aria-label',t('workspaceLabel'));
