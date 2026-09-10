@@ -3,63 +3,64 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#2449e8">
-  <meta name="description" content="Create printable gap-fill worksheets with a word bank and separate answer key. English and Persian, no account required.">
-  <meta property="og:title" content="Cloze Studio — printable language worksheets">
-  <meta property="og:description" content="Paste a text. Choose the words. Print a ready-to-teach worksheet.">
-  <title>Cloze Studio | سازنده تمرین زبان</title>
+  <meta name="theme-color" content="#2349e8">
+  <meta name="description" content="Design branded, printable worksheets with five question types, English and Persian support, and flexible paper sizes.">
+  <meta property="og:title" content="Cloze Studio — your worksheet studio">
+  <meta property="og:description" content="Five question types. Your own branding. One ready-to-print worksheet.">
+  <title>Cloze Studio | استودیوی طراحی تمرین</title>
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="styles.css">
+  <style id="paper-rules">@page { size: 210mm 297mm; margin: 14mm; }</style>
   <script src="core.js" defer></script>
+  <script src="content.js" defer></script>
   <script src="app.js" defer></script>
 </head>
 <body>
   <a class="skip-link" href="#workspace" data-i18n="skip">رفتن به محیط ساخت تمرین</a>
   <header class="topbar screen-only">
-    <div class="brand" dir="ltr"><span class="brand-symbol" aria-hidden="true">[&nbsp;]</span><span>Cloze <strong>Studio</strong></span><span class="version">1.0</span></div>
-    <div class="header-actions"><span class="local-note" data-i18n="local">متن شما در مرورگر می‌ماند</span><button type="button" id="language-toggle" class="button quiet" lang="en">English</button></div>
+    <div class="brand" dir="ltr"><span class="brand-symbol" aria-hidden="true">[&nbsp;]</span><div><span>Cloze <strong>Studio</strong></span><small>WORKSHEET BUILDER</small></div><span class="version">1.1</span></div>
+    <div class="header-actions"><button type="button" id="language-toggle" class="button quiet" lang="en">English</button><button type="button" class="button primary" id="print"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M7 8V3h10v5M7 17H4V8h16v9h-3M7 14h10v7H7z"/><path d="M17 11h1"/></svg><span data-i18n="print">چاپ / ذخیره PDF</span></button></div>
   </header>
   <main id="workspace">
-    <div class="workspace-heading screen-only">
-      <div><p class="eyebrow" data-i18n="eyebrow">میز کار مدرس</p><h1 data-i18n="heading">از متن، تمرین بساز.</h1><p class="intro" data-i18n="intro">کلمات را انتخاب کن؛ برگه تمرین و پاسخ‌نامه آماده می‌شوند.</p></div>
-      <button type="button" class="button primary print-button" id="print"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M7 8V3h10v5M7 17H4V8h16v9h-3M7 14h10v7H7z"/><path d="M17 11h1"/></svg><span data-i18n="print">چاپ / ذخیره PDF</span></button>
-    </div>
+    <div class="workspace-heading screen-only"><div><p class="eyebrow" data-i18n="eyebrow">میز کار مدرس</p><h1 data-i18n="heading">برگه تمرین را طراحی کن.</h1><p class="intro" data-i18n="intro">سؤال‌های متنوع، سربرگ اختصاصی و یک خروجی آماده چاپ.</p></div><div class="workspace-badges"><span id="total-badge" class="stat-badge"></span><span id="paper-badge" class="stat-badge paper-badge" dir="ltr">A4</span></div></div>
     <div class="studio-layout">
       <aside class="settings screen-only" aria-labelledby="settings-heading">
-        <div class="section-heading"><span class="step">01</span><h2 id="settings-heading" data-i18n="sourceHeading">متن و تنظیمات</h2></div>
-        <label for="worksheet-title" data-i18n="titleLabel">عنوان تمرین</label>
-        <input id="worksheet-title" type="text" maxlength="150" dir="auto" autocomplete="off">
-        <div class="label-row"><label for="source-text" data-i18n="textLabel">متن درس</label><button type="button" id="load-sample" class="text-button" data-i18n="sample">متن نمونه</button></div>
-        <textarea id="source-text" rows="9" maxlength="12000" spellcheck="false" dir="auto" aria-describedby="source-hint"></textarea>
-        <p id="source-hint" class="field-hint" data-i18n="sourceHint">با تغییر متن، انتخاب کلمات پاک می‌شود. حداکثر ۱۲٬۰۰۰ نویسه.</p>
-        <label for="sheet-language" data-i18n="sheetLanguage">زبان برگه تمرین</label>
-        <select id="sheet-language"><option value="en">English</option><option value="fa">فارسی</option></select>
-        <div class="options">
-          <label class="checkbox-row"><input id="word-bank" type="checkbox" checked><span><strong data-i18n="wordBank">بانک کلمات</strong><small data-i18n="bankHint">کلمات پاسخ به ترتیب الفبایی</small></span></label>
-          <label class="checkbox-row"><input id="answer-key" type="checkbox" checked><span><strong data-i18n="answerKey">پاسخ‌نامه جداگانه</strong><small data-i18n="keyHint">پس از برگه زبان‌آموز چاپ می‌شود</small></span></label>
+        <div class="settings-block identity-block"><div class="section-heading"><span class="section-number">01</span><h2 id="settings-heading" data-i18n="identityHeading">هویت برگه</h2></div>
+          <div class="logo-upload"><div id="logo-box" class="logo-box"><svg id="logo-placeholder" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="4"/><circle cx="8" cy="8" r="1.5"/><path d="m4 17 5-5 4 4 3-3 5 5"/></svg><img id="logo-preview" alt="" hidden></div><div class="logo-controls"><button type="button" id="choose-logo" class="button quiet compact" data-i18n="uploadLogo">افزودن لوگو</button><button type="button" id="remove-logo" class="text-button danger" data-i18n="removeLogo" hidden>حذف لوگو</button><small data-i18n="logoHint">PNG، JPG یا WebP · تا ۲ مگابایت</small></div><input id="logo-file" class="visually-hidden" type="file" accept="image/png,image/jpeg,image/webp" tabindex="-1" aria-label="Logo file"></div>
+          <p id="logo-message" class="field-message" role="status"></p>
+          <label for="institution" data-i18n="institution">نام آموزشگاه یا مدرس</label><input id="institution" type="text" maxlength="120" dir="auto" data-placeholder="institutionPlaceholder" placeholder="مثلاً آموزشگاه زبان فرتاک">
+          <label for="worksheet-title" data-i18n="titleLabel">عنوان تمرین</label><input id="worksheet-title" type="text" maxlength="150" dir="auto" autocomplete="off">
         </div>
-        <p class="print-hint" data-i18n="pdfHint">برای دریافت PDF، در پنجره چاپ «Save as PDF» را انتخاب کن.</p>
+        <div class="settings-block"><div class="section-heading"><span class="section-number">02</span><h2 data-i18n="pageHeading">تنظیمات چاپ</h2></div>
+          <label for="paper-size" data-i18n="paperSize">اندازه کاغذ</label><select id="paper-size" dir="ltr"><option value="A4">A4 · 210 × 297 mm</option><option value="A5">A5 · 148 × 210 mm</option><option value="Letter">Letter · 216 × 279 mm</option><option value="Legal">Legal · 216 × 356 mm</option></select>
+          <label for="orientation" data-i18n="orientation">جهت کاغذ</label><select id="orientation"><option value="portrait" data-i18n="portrait">عمودی</option><option value="landscape" data-i18n="landscape">افقی</option></select>
+          <label for="sheet-language" data-i18n="sheetLanguage">زبان برگه تمرین</label><select id="sheet-language"><option value="en">English</option><option value="fa">فارسی</option></select>
+          <label class="checkbox-row key-option"><input id="answer-key" type="checkbox" checked><span><strong data-i18n="answerKey">پاسخ‌نامه جداگانه</strong><small data-i18n="keyHint">پاسخ همه بخش‌ها در یک برگه</small></span></label>
+          <p class="print-hint" data-i18n="pdfHint">در پنجره چاپ، اندازه کاغذ انتخاب‌شده را بررسی و برای دریافت فایل «Save as PDF» را انتخاب کن.</p>
+        </div>
       </aside>
       <section class="work-area" aria-label="Worksheet workspace">
-        <div class="work-toolbar screen-only">
-          <div class="tabs" role="tablist" aria-label="View" id="view-tabs"><button type="button" id="edit-tab" role="tab" aria-controls="edit-panel" aria-selected="true" tabindex="0" data-i18n="editTab">انتخاب کلمات</button><button type="button" id="preview-tab" role="tab" aria-controls="preview-panel" aria-selected="false" tabindex="-1" data-i18n="previewTab">پیش‌نمایش چاپ</button></div>
-          <span class="gap-count" id="gap-count" role="status"></span>
+        <div class="work-toolbar screen-only"><div class="tabs" role="tablist" id="view-tabs" aria-label="Workspace view"><button type="button" id="edit-tab" role="tab" aria-controls="edit-panel" aria-selected="true" tabindex="0" data-i18n="editTab">ویرایش سؤال‌ها</button><button type="button" id="preview-tab" role="tab" aria-controls="preview-panel" aria-selected="false" tabindex="-1" data-i18n="previewTab">پیش‌نمایش چاپ</button></div><span class="local-note" data-i18n="local">اطلاعات فقط در مرورگر شما</span></div>
+        <div id="edit-panel" role="tabpanel" aria-labelledby="edit-tab" class="screen-only">
+          <div class="question-types" id="question-types" role="group" aria-label="Question type">
+            <button type="button" class="type-card" data-type="cloze" aria-pressed="true"><span class="type-icon" aria-hidden="true">Aa</span><span data-i18n="typeCloze">جای‌خالی</span><small data-count="cloze">۰</small></button>
+            <button type="button" class="type-card" data-type="mcq" aria-pressed="false"><span class="type-icon" aria-hidden="true">A/B</span><span data-i18n="typeMcq">چندگزینه‌ای</span><small data-count="mcq">۰</small></button>
+            <button type="button" class="type-card" data-type="tf" aria-pressed="false"><span class="type-icon" aria-hidden="true">✓ / ✕</span><span data-i18n="typeTf">درست / نادرست</span><small data-count="tf">۰</small></button>
+            <button type="button" class="type-card" data-type="matching" aria-pressed="false"><span class="type-icon" aria-hidden="true">↔</span><span data-i18n="typeMatching">تطبیقی</span><small data-count="matching">۰</small></button>
+            <button type="button" class="type-card" data-type="short" aria-pressed="false"><span class="type-icon" aria-hidden="true">≡</span><span data-i18n="typeShort">پاسخ کوتاه</span><small data-count="short">۰</small></button>
+          </div>
+          <div class="editor-card"><div class="editor-heading"><div><h2 id="active-heading"></h2><p id="active-help"></p></div><label class="include-toggle"><input id="include-type" type="checkbox" checked><span data-i18n="includeSection">در برگه باشد</span></label></div>
+            <div class="editor-actions"><button type="button" id="add-question" class="button secondary compact" hidden><span aria-hidden="true">＋</span><span id="add-label"></span></button><button type="button" id="load-sample" class="text-button" data-i18n="sample">افزودن نمونه</button><button type="button" id="clear-selection" class="text-button" data-i18n="clear">پاک‌کردن انتخاب‌ها</button><span id="editor-count" class="editor-count"></span></div>
+            <div id="cloze-editor"><div class="source-area"><label for="source-text" data-i18n="textLabel">متن درس</label><textarea id="source-text" rows="5" maxlength="12000" spellcheck="false" dir="auto" aria-describedby="source-hint"></textarea><p id="source-hint" class="field-hint" data-i18n="sourceHint">ویرایش متن، انتخاب‌ها را پاک می‌کند. حداکثر ۱۲٬۰۰۰ نویسه.</p></div><div class="selection-label"><span data-i18n="selectHint">روی کلمات کلیک کن تا جای‌خالی شوند.</span><span id="gap-count" class="tiny-badge"></span></div><div id="word-selector" class="word-selector" lang="en" dir="auto"></div><div class="cloze-footer"><span id="word-count"></span><label class="checkbox-row"><input id="word-bank" type="checkbox" checked><span data-i18n="wordBank">بانک کلمات</span></label></div></div>
+            <div id="question-list" class="question-list" hidden></div>
+            <div class="editor-bottom"><span data-i18n="combinedHint">بخش‌های فعال، با هم در یک برگه چاپ می‌شوند.</span><button type="button" class="text-button" id="show-preview" data-i18n="seeWorksheet">دیدن برگه تمرین</button></div>
+          </div>
         </div>
-        <div id="edit-panel" class="edit-panel screen-only" role="tabpanel" aria-labelledby="edit-tab">
-          <div class="selection-heading"><div><div class="section-heading"><span class="step">02</span><h2 data-i18n="selectHeading">روی کلمات کلیک کن</h2></div><p data-i18n="selectHint">هر کلمه آبی، یک جای‌خالی در تمرین است.</p></div><button type="button" id="clear-selection" class="text-button" data-i18n="clear">پاک‌کردن انتخاب‌ها</button></div>
-          <div id="word-selector" class="word-selector" lang="en" dir="auto"></div>
-          <div class="selection-footer"><span id="word-count"></span><span class="selection-legend"><i aria-hidden="true"></i><span data-i18n="selectedLegend">کلمات انتخاب‌شده</span></span></div>
-          <div class="answer-strip"><span data-i18n="selectedAnswers">پاسخ‌های انتخاب‌شده</span><div id="selected-answers"></div></div>
-        </div>
-        <div id="preview-panel" class="preview-panel" role="tabpanel" aria-labelledby="preview-tab" hidden>
-          <p class="preview-caption screen-only" data-i18n="previewHint">پیش‌نمایش محتوا · صفحه‌بندی نهایی در پنجره چاپ مشخص می‌شود.</p>
-          <article id="student-sheet" class="paper"></article>
-          <article id="key-sheet" class="paper key-sheet"></article>
-        </div>
-        <p id="notice" class="notice screen-only" role="status" aria-live="polite"></p>
+        <div id="preview-panel" class="preview-panel" role="tabpanel" aria-labelledby="preview-tab" hidden><div class="preview-caption screen-only"><span data-i18n="previewHint">پیش‌نمایش محتوا · صفحه‌بندی نهایی در پنجره چاپ</span><span id="preview-dimensions" dir="ltr"></span></div><article id="student-sheet" class="paper"></article><article id="key-sheet" class="paper key-sheet"></article></div>
+        <p id="validation-message" class="validation-message screen-only" role="alert" hidden></p><p id="notice" class="notice screen-only" role="status" aria-live="polite"></p>
       </section>
     </div>
-    <footer class="footer screen-only"><span dir="ltr">Cloze Studio</span><span data-i18n="footer">ساخت تمرین، بدون ثبت‌نام و بدون ارسال متن به سرور.</span></footer>
+    <footer class="footer screen-only"><span dir="ltr">Cloze Studio <span class="footer-version">1.1.0</span></span><span data-i18n="footer">آماده برای کلاس شما. بدون ثبت‌نام و هزینه هوش مصنوعی.</span></footer>
   </main>
   <noscript><p>برای ساخت تمرین، جاوااسکریپت مرورگر را فعال کنید. Enable JavaScript to create a worksheet.</p></noscript>
 </body>

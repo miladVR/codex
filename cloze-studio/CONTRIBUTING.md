@@ -1,6 +1,6 @@
 # Contributing
 
-Cloze Studio focuses on a small classroom task: making reliable gap-fill worksheets from teacher-provided text.
+Cloze Studio focuses on a small classroom task: making reliable, branded worksheets from teacher-authored text and questions.
 
 ## Report a problem
 
@@ -9,7 +9,7 @@ Open an issue with a short invented sample, reproduction steps, browser and oper
 ## Make a change
 
 1. Make a focused branch and keep changes small.
-2. Keep the app usable by opening `dist/index.html` directly: avoid modules that require a server, external assets, network requests or unnecessary dependencies.
+2. Keep every question type and the local logo picker usable by opening `dist/index.html` directly: avoid modules that require a server, external assets, network requests or unnecessary dependencies.
 3. Insert teacher-provided text with DOM text nodes or `textContent`; never treat it as HTML.
 4. Preserve English and Persian interface strings, keyboard navigation and RTL behavior.
 5. Run `npm test` and `npm run check` from this folder. Add a regression test when fixing a worksheet-engine defect.

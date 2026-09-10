@@ -23,6 +23,7 @@ jobs:
       - name: Check JavaScript syntax
         run: |
           node --check cloze-studio/dist/core.js
+          node --check cloze-studio/dist/content.js
           node --check cloze-studio/dist/app.js
       - name: Check worksheet behavior
         run: node --test cloze-studio/tests/core.test.cjs
