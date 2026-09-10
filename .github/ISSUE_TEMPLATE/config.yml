@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: "Teacher feedback / بازخورد مدرس‌ها"
+    url: "https://github.com/miladVR/codex/issues/2"
+    about: "Try a worksheet and tell us what worked or what could improve."
+  - name: "Use Cloze Studio / اجرای برنامه"
+    url: "https://cloze-studio.vrcenter-ir.chatgpt.site"
+    about: "Open the free public worksheet builder."

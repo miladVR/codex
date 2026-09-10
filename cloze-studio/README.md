@@ -2,7 +2,7 @@
 
 **Your own worksheet, from questions to a branded printable handout.**
 
-[راهنمای فارسی](README.fa.md) · [What's new in 1.1.0](CHANGELOG.md) · [Contributing](CONTRIBUTING.md) · [MIT license](LICENSE)
+[Open the public app](https://cloze-studio.vrcenter-ir.chatgpt.site) · [Share teacher feedback](https://github.com/miladVR/codex/issues/2) · [راهنمای فارسی](README.fa.md) · [What's new in 1.1.0](CHANGELOG.md) · [Contributing](CONTRIBUTING.md) · [MIT license](LICENSE)
 
 Cloze Studio is a dependency-free worksheet builder for language teachers. Combine five question types, add an institution or teacher name and logo, choose a page format, and print the complete worksheet with a separate answer key.
 
@@ -28,7 +28,11 @@ The original English and Persian samples can be loaded into each section. Questi
 - Set English or Persian worksheet labels independently of the interface language. The app supports RTL text and Persian half-spaces.
 - Print or save as PDF through the browser. Check paper size, orientation and margins in the print dialog because browser or printer settings can override the app's request.
 
-## Try it without installing anything
+## Try it online
+
+Open **[Cloze Studio](https://cloze-studio.vrcenter-ir.chatgpt.site)**. The app is public and does not require an app account, subscription or API key. Select **English** in the top bar if needed, load an example, and try a short worksheet. Print or save your work as PDF before closing the page.
+
+## Download for offline use
 
 1. Download this repository as a ZIP and extract it.
 2. Open `dist/index.html` inside this project folder in a modern browser.
@@ -71,6 +75,8 @@ To host the app, serve `dist/` from a static host. Relative assets support hosti
 Automated checks cover the worksheet engine, example data, static references and JavaScript syntax. Cross-browser visual, logo-upload and physical printing checks have not yet been performed. Final pagination and available print options depend on the browser and printer.
 
 ## Feedback and contributions
+
+**[Leave feedback in English or Persian](https://github.com/miladVR/codex/issues/2)**. Try making a short worksheet, then tell us what worked, where you got stuck, and what would help in class. GitHub requires an account to comment; you can also reply in the community where this tool was shared. [Report a separate bug](https://github.com/miladVR/codex/issues/new/choose) for a reproducible problem.
 
 If this saves preparation time, a GitHub star helps others discover it. When reporting a problem, include the question type, browser, interface language, worksheet language and paper size. Use invented questions instead of learner records.
 
