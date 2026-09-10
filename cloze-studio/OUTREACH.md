@@ -13,7 +13,7 @@ Updated: 2026-09-10
 | --- | --- |
 | Live app | Public access enabled and confirmed in Sites settings. |
 | GitHub | Public app/source introduction and bilingual feedback thread published. |
-| ESL Treasures / Grandomastery | Submission text prepared. Sending the contact email requires the owner's explicit approval; not submitted. |
+| ESL Treasures / Grandomastery | Submitted by email to the official address hello@grandomastery.com, signed Milad Rabiei. Gmail confirmed SENT. Editorial acceptance and listing remain pending. |
 | Reddit r/ESL_Teachers | Draft prepared; account sign-in and live posting checks required; not posted. |
 | Reddit r/SideProject | Draft prepared; account sign-in and live posting checks required; not posted. |
 
@@ -53,7 +53,9 @@ No app account, API key or backend is required. The interface starts in Persian;
 
 I'd value feedback on the first-use experience and printed output, especially from people who teach or make classroom materials. You can reply here or use https://github.com/miladVR/codex/issues/2.
 
-## ESL Treasures — submission text, pending contact approval
+## ESL Treasures — submitted via official email route
+
+Submitted under the name **Milad Rabiei** with the owner's authorization. The website form rejected a valid app URL because its “Your Website” field applied an email-address validation rule. The official email route was used instead. Subject: **ESL Treasures submission: Cloze Studio — free worksheet builder for language teachers**. Sending is confirmed; no editorial acceptance or public listing has been confirmed.
 
 Please consider Cloze Studio for the ESL Treasures resource collection.
 
