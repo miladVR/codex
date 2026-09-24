@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self';">
+  <title>نمایش زنده نتایج</title>
+  <link rel="stylesheet" href="display.css">
+</head>
+<body>
+  <div class="ambient ambient-one"></div><div class="ambient ambient-two"></div>
+  <main>
+    <header>
+      <div class="brand"><div class="mark">آ</div><div><p>مسابقات آتش‌نشانان ایمیدرو</p><h1 id="competition-name">نمایش زنده نتایج</h1></div></div>
+      <div class="clock"><strong id="clock">--:--</strong><span id="date">در حال آماده‌سازی</span></div>
+    </header>
+    <section class="meta"><span class="live"><i></i> نتایج رسمی زنده</span><span id="venue"></span><span id="progress"></span></section>
+    <section id="podium" class="podium"></section>
+    <section class="table-panel">
+      <div class="section-title"><h2>جدول رده‌بندی تیمی</h2><span>کمترین مجموع رتبه‌ها، جایگاه بهتر</span></div>
+      <div id="standings"></div>
+    </section>
+    <footer><span id="display-message"></span><span class="system">سامانه آفلاین امتیازدهی مسابقات</span></footer>
+  </main>
+  <div id="flash" class="flash" aria-live="polite"></div>
+  <script src="display.js"></script>
+</body>
+</html>
