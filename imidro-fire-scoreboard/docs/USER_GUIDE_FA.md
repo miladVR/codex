@@ -1,11 +1,11 @@
 <table class="brand-row" dir="rtl">
   <tr>
-    <td class="brand-nicico" align="right"><img src="assets/nicico-logo.png" alt="نشان شرکت ملی صنایع مس ایران" width="105"></td>
+    <td class="brand-nicico" align="right"><img src="assets/nicico-logo.jpg" alt="نشان شرکت ملی صنایع مس ایران" width="105"></td>
     <td class="brand-credit" align="left"><strong>توسعه‌دهنده و حامی</strong><br>امور آموزش و توسعه شایستگی مجتمع مس سرچشمه</td>
   </tr>
 </table>
 
-<p align="center"><img src="assets/competition-logo.png" alt="نشان سومین دوره مسابقات علمی و عملیاتی آتش‌نشانان ایمیدرو" width="310"></p>
+<p align="center"><img src="assets/competition-logo.jpg" alt="نشان سومین دوره مسابقات علمی و عملیاتی آتش‌نشانان ایمیدرو" width="310"></p>
 
 # راهنمای نصب راه‌اندازی و استفاده از سامانه امتیازدهی المپیاد آتش‌نشانی ایمیدرو
 
