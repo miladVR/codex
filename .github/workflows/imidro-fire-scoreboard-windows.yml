@@ -1,0 +1,41 @@
+name: Build IMIDRO Fire Scoreboard for Windows
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "imidro-fire-v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: imidro-fire-scoreboard
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: imidro-fire-scoreboard/package-lock.json
+      - name: Install dependencies
+        run: npm ci
+      - name: Run tests
+        run: npm test
+      - name: Build Setup and Portable editions
+        run: npm run dist:win
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: imidro-fire-scoreboard-windows
+          path: imidro-fire-scoreboard/release/*.exe
+      - name: Publish tagged release
+        if: startsWith(github.ref, 'refs/tags/imidro-fire-v')
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create $env:GITHUB_REF_NAME release/*.exe --title "IMIDRO Fire Scoreboard $env:GITHUB_REF_NAME" --generate-notes
