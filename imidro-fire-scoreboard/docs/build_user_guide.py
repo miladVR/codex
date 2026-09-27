@@ -7,6 +7,10 @@ from weasyprint import HTML
 ROOT = Path(__file__).resolve().parent
 SOURCE = ROOT / "USER_GUIDE_FA.md"
 OUTPUT = ROOT / "IMIDRO-Fire-Scoreboard-User-Guide-FA.pdf"
+FONT = ROOT / "fonts" / "BZar.ttf"
+
+if not FONT.exists():
+    raise FileNotFoundError("Place a legally obtained BZar.ttf in docs/fonts before building the PDF.")
 
 body = markdown.markdown(
     SOURCE.read_text(encoding="utf-8"),
@@ -14,12 +18,18 @@ body = markdown.markdown(
 )
 
 css = r"""
+@font-face {
+  font-family: "B Zar";
+  src: url("fonts/BZar.ttf") format("truetype");
+  font-weight: normal;
+  font-style: normal;
+}
 @page {
   size: A4;
   margin: 18mm 16mm 18mm 16mm;
-  @top-right { content: "سامانه امتیازدهی المپیاد آتش‌نشانی ایمیدرو"; color: #6f7782; font-size: 8.5pt; }
-  @bottom-left { content: "امور آموزش و توسعه شایستگی مجتمع مس سرچشمه"; color: #7b838d; font-size: 7.5pt; }
-  @bottom-right { content: "صفحه " counter(page) " از " counter(pages); color: #7b838d; font-size: 8pt; }
+  @top-right { content: "سامانه امتیازدهی المپیاد آتش‌نشانی ایمیدرو"; color: #6f7782; font-family: "B Zar"; font-size: 10pt; }
+  @bottom-left { content: "امور آموزش و توسعه شایستگی مجتمع مس سرچشمه"; color: #7b838d; font-family: "B Zar"; font-size: 9pt; }
+  @bottom-right { content: "صفحه " counter(page) " از " counter(pages); color: #7b838d; font-family: "B Zar"; font-size: 9.5pt; }
 }
 @page:first {
   margin: 15mm 18mm 18mm 18mm;
@@ -29,12 +39,12 @@ css = r"""
 }
 html { direction: rtl; }
 body {
-  font-family: "DejaVu Sans", sans-serif;
+  font-family: "B Zar", "DejaVu Sans", sans-serif;
   direction: rtl;
   text-align: right;
   color: #17202a;
-  font-size: 10.3pt;
-  line-height: 1.82;
+  font-size: 12.4pt;
+  line-height: 1.68;
 }
 .brand-row {
   width: 100%;
@@ -53,7 +63,7 @@ body {
   border-left: 3px solid #c71920;
   padding: 4mm 5mm;
   border-radius: 2mm;
-  font-size: 9pt;
+  font-size: 11pt;
   line-height: 1.7;
 }
 p[align="center"] { text-align: center; margin: 4mm 0 2mm; }
@@ -61,15 +71,15 @@ p[align="center"] img { width: 78mm; height: 78mm; object-fit: contain; }
 h1 {
   color: #111820;
   text-align: center;
-  font-size: 21pt;
+  font-size: 26pt;
   line-height: 1.55;
   margin: 5mm 7mm 3mm;
   page-break-after: avoid;
 }
-h1 + p { text-align: center; color: #a11218; font-weight: bold; font-size: 11.5pt; }
+h1 + p { text-align: center; color: #a11218; font-weight: bold; font-size: 14pt; }
 h2 {
   color: #9f1118;
-  font-size: 15pt;
+  font-size: 19pt;
   margin: 8mm 0 3mm;
   padding-right: 4mm;
   border-right: 4px solid #d43b24;
@@ -77,7 +87,7 @@ h2 {
 }
 h3 {
   color: #253342;
-  font-size: 12pt;
+  font-size: 15pt;
   margin: 6mm 0 2mm;
   page-break-after: avoid;
 }
@@ -91,7 +101,7 @@ table {
   width: 100%;
   border-collapse: collapse;
   margin: 4mm 0 6mm;
-  font-size: 8.7pt;
+  font-size: 10.5pt;
   page-break-inside: auto;
 }
 thead { display: table-header-group; }
@@ -118,7 +128,7 @@ code {
   background: #f3f4f6;
   padding: 0.3mm 1mm;
   border-radius: 1mm;
-  font-size: 8.3pt;
+  font-size: 9.2pt;
 }
 pre {
   direction: ltr;
@@ -129,7 +139,7 @@ pre {
   border-radius: 2mm;
   overflow-wrap: anywhere;
   white-space: pre-wrap;
-  font-size: 7.8pt;
+  font-size: 8.5pt;
   line-height: 1.55;
   page-break-inside: avoid;
 }
