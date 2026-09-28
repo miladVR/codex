@@ -38,4 +38,10 @@ jobs:
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create $env:GITHUB_REF_NAME release/*.exe --title "IMIDRO Fire Scoreboard $env:GITHUB_REF_NAME" --generate-notes
+        run: |
+          $releaseExists = $null -ne (gh release view $env:GITHUB_REF_NAME --json tagName 2>$null)
+          if ($releaseExists) {
+            gh release upload $env:GITHUB_REF_NAME release/*.exe --clobber
+          } else {
+            gh release create $env:GITHUB_REF_NAME release/*.exe --title "IMIDRO Fire Scoreboard $env:GITHUB_REF_NAME" --generate-notes
+          }
