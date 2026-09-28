@@ -1,0 +1,50 @@
+{
+  "name": "imidro-fire-scoreboard",
+  "version": "1.0.0",
+  "description": "Offline Windows scoring system for IMIDRO firefighters competitions",
+  "main": "main.cjs",
+  "author": "Milad Rabiei",
+  "license": "MIT",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "test": "node --test",
+    "dist:win": "electron-builder --win nsis portable"
+  },
+  "devDependencies": {
+    "electron": "44.4.5",
+    "electron-builder": "26.15.3"
+  },
+  "build": {
+    "appId": "ir.imidro.fire.scoreboard",
+    "productName": "IMIDRO Fire Scoreboard",
+    "asar": true,
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "main.cjs",
+      "preload.cjs",
+      "store.cjs",
+      "scoring.cjs",
+      "src/**/*",
+      "assets/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": [
+        { "target": "nsis", "arch": ["x64"] },
+        { "target": "portable", "arch": ["x64"] }
+      ],
+      "artifactName": "IMIDRO-Fire-Scoreboard-${version}-${arch}-portable.${ext}"
+    },
+    "nsis": {
+      "artifactName": "IMIDRO-Fire-Scoreboard-${version}-${arch}-setup.${ext}",
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "سامانه امتیازدهی آتش‌نشانان ایمیدرو"
+    }
+  }
+}

@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>سامانه امتیازدهی آتش‌نشانان ایمیدرو</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="shell">
+    <aside class="sidebar">
+      <div class="brand"><div class="brand-mark">🔥</div><div><strong>IMIDRO RESCUE</strong><small>مرکز فرماندهی مسابقه</small></div></div>
+      <nav id="nav">
+        <button class="nav-item active" data-view="dashboard">◫ تابلوی نتایج</button>
+        <button class="nav-item" data-view="entry">⏱ ثبت نتیجه</button>
+        <button class="nav-item" data-view="approvals">✓ تأیید سرداور <span id="draft-badge"></span></button>
+        <button class="nav-item" data-view="teams">♟ تیم‌ها</button>
+        <button class="nav-item" data-view="settings">⚙ تنظیمات و نمایشگر</button>
+        <button class="nav-item" data-view="audit">↺ سوابق تغییرات</button>
+      </nav>
+      <div class="offline-card"><span class="status-dot"></span> آفلاین و آماده مسابقه<small>همه اطلاعات روی همین رایانه ذخیره می‌شود.</small></div>
+    </aside>
+    <main>
+      <header><div><h1 id="view-title">تابلوی نتایج</h1><p id="venue"></p></div><div class="header-actions"><button id="backup-btn" class="btn ghost">نسخه پشتیبان</button><button id="display-btn" class="btn primary">بازکردن نمایشگر دوم</button></div></header>
+      <section id="content"></section>
+    </main>
+  </div>
+  <div id="toast" role="status" aria-live="polite"></div>
+  <script src="admin.js"></script>
+</body>
+</html>
