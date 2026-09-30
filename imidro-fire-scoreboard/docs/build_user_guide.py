@@ -141,13 +141,10 @@ def table(rows):
 
 def codeblock(lines):
     global y
-    chunks=[]
     for line in lines:
-        while len(line)>85:chunks.append(line[:85]);line=line[85:]
-        chunks.append(line)
-    for line in chunks:
         ensure(17);c.setFillColor(HexColor("#edf1f5"));c.rect(LEFT,y-17,RIGHT-LEFT,17,fill=1,stroke=0)
-        c.setFillColor(INK);c.setFont("Courier",8.7);c.drawString(LEFT+8,y-12,line);y-=17
+        size=min(8.7,8.7*(RIGHT-LEFT-16)/max(1,pdfmetrics.stringWidth(line,"Courier",8.7)))
+        c.setFillColor(INK);c.setFont("Courier",size);c.drawString(LEFT+8,y-12,line);y-=17
     y-=12
 
 # Cover: keep the provided image intact, including its Persian lettering.
