@@ -76,6 +76,8 @@ function handleMutation(channel, operation) {
 app.whenReady().then(() => {
   store = new CompetitionStore(app.getPath("userData"));
   ipcMain.handle("state:get", () => store.view());
+  handleMutation("draw:create", (payload) => store.createDraw(payload));
+  handleMutation("display:set", (payload) => store.setDisplay(payload));
   handleMutation("team:add", (payload) => store.addTeam(payload));
   handleMutation("result:save", (payload) => store.saveResult(payload));
   handleMutation("result:approve", (payload) => store.approveResult(payload));
@@ -89,6 +91,7 @@ app.whenReady().then(() => {
     store.exportSnapshot(result.filePath);
     return { canceled: false, filePath: result.filePath };
   });
+  require("./report.cjs").registerReports({ ipcMain, dialog, BrowserWindow, getStore: () => store, getWindow: () => adminWindow });
   createAdminWindow();
   app.on("activate", () => { if (BrowserWindow.getAllWindows().length === 0) createAdminWindow(); });
 });

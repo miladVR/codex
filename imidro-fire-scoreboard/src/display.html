@@ -1,28 +1,20 @@
 <!doctype html>
 <html lang="fa" dir="rtl">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self';">
   <title>نمایش زنده نتایج</title>
-  <link rel="stylesheet" href="display.css">
+  <link rel="stylesheet" href="brand.css"><link rel="stylesheet" href="display.css">
 </head>
 <body>
-  <div class="ambient ambient-one"></div><div class="ambient ambient-two"></div>
   <main>
-    <header>
-      <div class="brand"><div class="mark">آ</div><div><p>مسابقات آتش‌نشانان ایمیدرو</p><h1 id="competition-name">نمایش زنده نتایج</h1></div></div>
-      <div class="clock"><strong id="clock">--:--</strong><span id="date">در حال آماده‌سازی</span></div>
-    </header>
-    <section class="meta"><span class="live"><i></i> نتایج رسمی زنده</span><span id="venue"></span><span id="progress"></span></section>
-    <section id="podium" class="podium"></section>
-    <section class="table-panel">
-      <div class="section-title"><h2>جدول رده‌بندی تیمی</h2><span>کمترین مجموع رتبه‌ها، جایگاه بهتر</span></div>
-      <div id="standings"></div>
-    </section>
-    <footer><span id="display-message"></span><span class="system">سامانه آفلاین امتیازدهی مسابقات</span></footer>
+    <header><div class="brand"><img class="competition-logo" src="../assets/competition-logo.jpg" alt="نشان سومین دوره مسابقات آتش‌نشانان ایمیدرو"><div><p class="eyebrow">اراده، مهارت، افتخار</p><h1 id="competition-name">مسابقات آتش‌نشانان ایمیدرو</h1><p id="venue"></p></div></div><div class="clock"><strong id="clock">--:--</strong><span id="date"></span></div></header>
+    <section class="meta"><span class="live"><i></i><span id="mode-label">نتایج رسمی زنده</span></span><span id="progress"></span><span id="page-info"></span></section>
+    <section id="podium" class="podium" aria-label="تیم‌های پیشتاز"></section>
+    <section class="table-panel"><div class="section-title"><h2 id="table-title">جدول رده‌بندی تیمی</h2><span id="table-subtitle">کمترین مجموع رتبه‌ها، جایگاه بهتر</span></div><div id="standings"></div><div class="page-controls"><button id="previous-page" aria-label="صفحه قبلی">صفحه قبل</button><button id="pause-pages">توقف گردش</button><button id="next-page" aria-label="صفحه بعدی">صفحه بعد</button></div></section>
+    <aside id="announcement" role="status" aria-live="polite">در انتظار نتیجهٔ تازه</aside>
+    <footer><p id="display-message"></p><p class="org-credit">امور آموزش و توسعه شایستگی مجتمع مس سرچشمه رفسنجان</p></footer>
   </main>
-  <div id="flash" class="flash" aria-live="polite"></div>
-  <script src="display.js"></script>
+  <script src="sound.js"></script><script src="display.js"></script>
 </body>
 </html>

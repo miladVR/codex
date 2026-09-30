@@ -2,6 +2,10 @@ name: Build IMIDRO Fire Scoreboard for Windows
 
 on:
   workflow_dispatch:
+  pull_request:
+    paths:
+      - "imidro-fire-scoreboard/**"
+      - ".github/workflows/imidro-fire-scoreboard-windows.yml"
   push:
     tags:
       - "imidro-fire-v*"
@@ -26,6 +30,14 @@ jobs:
         run: npm ci
       - name: Run tests
         run: npm test
+      - name: Native Electron and PDF smoke test
+        run: npx electron scripts/smoke.cjs
+      - name: Upload visual and PDF verification artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: imidro-visual-verification
+          path: imidro-fire-scoreboard/release/qa/*
       - name: Build Setup and Portable editions
         run: npm run dist:win
       - name: Upload workflow artifact
