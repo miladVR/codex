@@ -64,10 +64,10 @@
 ۳. فرمان زیر را کامل کپی، در پنجره PowerShell جای‌گذاری و کلید Enter را فشار دهید:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -Command "irm https://raw.githubusercontent.com/miladVR/codex/main/imidro-fire-scoreboard/scripts/install.ps1 | iex"
+irm "https://raw.githubusercontent.com/miladVR/codex/main/imidro-fire-scoreboard/scripts/install.ps1" | iex
 ```
 
-**نکته مهم:** این فرمان فقط پس از ادغام پروژه در شاخه `main` و انتشار حداقل یک Release رسمی با برچسب `imidro-fire-v*` کار می‌کند. خطای `404: Not Found` یعنی فایل `install.ps1` هنوز در شاخه `main` وجود ندارد. همچنین فقط متن داخل کادر بالا را کپی کنید؛ کروشه و پرانتز مربوط به قالب لینک‌های وب نباید در فرمان PowerShell باشد.
+فرمان بالا را کامل و در یک خط کپی کنید؛ وسط آدرس Enter نزنید. شکستن آدرس، از جمله بین mi و ladVR، می‌تواند خطای 404 و «دستور شناخته نشد» ایجاد کند. فقط متن داخل کادر را در PowerShell وارد کنید. این فرمان آخرین Release رسمی با برچسب imidro-fire-v را نصب می‌کند.
 
 ۴. چند لحظه صبر کنید تا جدیدترین نسخه رسمی پیدا و فایل Setup بارگیری شود.  
 ۵. وقتی پنجره نصب باز شد، مسیر پیشنهادی را بپذیرید و مراحل را تا پایان ادامه دهید.  
@@ -366,3 +366,4 @@ npm run dist:win
 **پایان راهنما**  
 سومین دوره مسابقات علمی و عملیاتی آتش‌نشانان ایمیدرو  
 توسعه‌دهنده و حامی: امور آموزش و توسعه شایستگی مجتمع مس سرچشمه
+

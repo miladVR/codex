@@ -137,13 +137,13 @@ pre {
   color: #f7f7f7;
   padding: 4mm;
   border-radius: 2mm;
-  overflow-wrap: anywhere;
-  white-space: pre-wrap;
+  overflow-wrap: normal;
+  white-space: pre;
   font-size: 8.5pt;
   line-height: 1.55;
   page-break-inside: avoid;
 }
-pre code { background: transparent; color: inherit; padding: 0; }
+pre code { background: transparent; color: inherit; padding: 0; font-size: 7.4pt; }
 input[type="checkbox"] { margin-left: 2mm; }
 blockquote { margin: 4mm 0; padding: 3mm 5mm; border-right: 3px solid #c71920; background: #fff7f5; }
 body > p:last-of-type { text-align: center; color: #5b626a; }
@@ -157,3 +157,4 @@ html = f"""<!doctype html>
 
 HTML(string=html, base_url=str(ROOT)).write_pdf(str(OUTPUT))
 print(OUTPUT)
+
