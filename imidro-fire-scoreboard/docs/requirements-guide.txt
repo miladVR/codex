@@ -1,2 +1,4 @@
-Markdown==3.10.3
-WeasyPrint==70.0
+reportlab>=4.0
+arabic-reshaper>=3.0
+python-bidi>=0.4
+fonttools>=4.0

@@ -3,7 +3,9 @@
 const api = window.scoreboardAPI;
 let state;
 let currentView = "dashboard";
-const titles = { dashboard: "تابلوی نتایج", entry: "ثبت نتیجه", approvals: "تأیید سرداور", teams: "تیم‌ها", settings: "تنظیمات و نمایشگر", audit: "سوابق تغییرات" };
+let drawScope = "all";
+let drawBusy = false;
+const titles = { dashboard: "تابلوی نتایج", entry: "ثبت نتیجه", approvals: "تأیید سرداور", teams: "تیم‌ها", settings: "تنظیمات و نمایشگر", draw: "قرعه‌کشی تیم‌ها", audit: "سوابق تغییرات" };
 
 document.querySelectorAll(".nav-item").forEach((button) => button.addEventListener("click", () => setView(button.dataset.view)));
 document.querySelector("#display-btn").addEventListener("click", () => api.openDisplay().then(() => notify("نمایشگر نتایج باز شد.")));
@@ -23,8 +25,13 @@ function render() {
   document.querySelector("#venue").textContent = state.settings.venue;
   const drafts = state.results.filter((result) => result.status === "draft").length;
   document.querySelector("#draft-badge").textContent = drafts || "";
-  const views = { dashboard: dashboardView, entry: entryView, approvals: approvalsView, teams: teamsView, settings: settingsView, audit: auditView };
+  const views = { dashboard: dashboardView, entry: entryView, approvals: approvalsView, teams: teamsView, settings: settingsView, draw: drawView, audit: auditView };
   document.querySelector("#content").innerHTML = views[currentView]();
+  document.querySelectorAll(".field").forEach(field => {
+    const label = field.querySelector("label"); const input = field.querySelector("input,select,textarea");
+    if (label && input?.id) label.htmlFor = input.id;
+  });
+  document.querySelectorAll(".time-part").forEach(part => part.querySelector("label").htmlFor = part.querySelector("select").id);
   bindCurrentView();
 }
 
@@ -33,7 +40,7 @@ function dashboardView() {
   const drafts = state.results.filter((result) => result.status === "draft").length;
   return `<div class="card hero"><h2>${escapeHtml(state.settings.competitionName)}</h2><p>جدول رسمی فقط از نتایج تأییدشده ساخته می‌شود؛ کمترین مجموع رتبه‌ها، جایگاه بهتر را تعیین می‌کند.</p></div>
   <div class="grid metrics"><div class="metric"><b>${state.teams.length}</b><span>تیم حاضر</span></div><div class="metric"><b>${approved}</b><span>نتیجه تأییدشده</span></div><div class="metric"><b>${drafts}</b><span>در انتظار تأیید</span></div><div class="metric"><b>${state.disciplines.length}</b><span>رشته مسابقه</span></div></div>
-  <div class="card"><h2>جدول امتیازات تیمی</h2>${standingsTable()}</div>`;
+  <div class="card"><div class="section-actions"><h2>جدول امتیازات تیمی</h2><button id="export-standings" class="btn ghost">دریافت PDF نتایج</button></div>${standingsTable()}</div>`;
 }
 
 function standingsTable() {
@@ -50,7 +57,7 @@ function entryView() {
 
 function approvalsView() {
   const drafts = state.results.filter((result) => result.status === "draft");
-  const approved = state.results.filter((result) => result.status === "approved").sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)).slice(0, 12);
+  const approved = state.results.filter((result) => result.status === "approved").sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
   return `<div class="card"><h2>صف تأیید سرداور</h2>${resultsTable(drafts, "approve")}</div><div class="card"><h2>آخرین نتایج قفل‌شده</h2>${resultsTable(approved, "reopen")}</div>`;
 }
 
@@ -64,7 +71,7 @@ function teamsView() {
 }
 
 function settingsView() {
-  return `<div class="grid settings-grid"><div class="card"><h2>مشخصات مسابقه</h2><div class="field"><label>عنوان مسابقه</label><input id="competition-name" value="${escapeAttr(state.settings.competitionName)}"></div><div class="field"><label>محل و سال برگزاری</label><input id="competition-venue" value="${escapeAttr(state.settings.venue)}"></div><div class="field"><label>پیام پایین نمایشگر</label><input id="display-message" value="${escapeAttr(state.settings.displayMessage)}"></div><div class="switch-row"><span>پخش صدای اعلان نتیجه</span><input id="audio-enabled" type="checkbox" ${state.settings.audioEnabled ? "checked" : ""}></div><div class="actions" style="margin-top:16px"><button id="save-settings" class="btn primary">ذخیره تنظیمات</button></div></div><div class="card"><h2>نمایشگر دوم</h2><p style="color:var(--muted);line-height:2">با انتخاب «بازکردن نمایشگر»، پنجره نتایج روی مانیتور دوم به‌صورت تمام‌صفحه باز می‌شود. اگر فقط یک نمایشگر متصل باشد، پنجره عادی باز می‌شود تا آن را جابه‌جا کنید.</p><div class="actions"><button id="open-display-alt" class="btn primary">بازکردن نمایشگر</button><button id="close-display" class="btn ghost">بستن نمایشگر</button><button id="backup-alt" class="btn ghost">ذخیره نسخه پشتیبان</button></div></div></div>`;
+  return `<div class="grid settings-grid"><div class="card"><h2>مشخصات مسابقه</h2><div class="field"><label>عنوان مسابقه</label><input id="competition-name" value="${escapeAttr(state.settings.competitionName)}"></div><div class="field"><label>محل و سال برگزاری</label><input id="competition-venue" value="${escapeAttr(state.settings.venue)}"></div><div class="field"><label>پیام پایین نمایشگر</label><input id="display-message" value="${escapeAttr(state.settings.displayMessage)}"></div><div class="switch-row"><span>پخش صدای اعلان نتیجه</span><input id="audio-enabled" type="checkbox" ${state.settings.audioEnabled ? "checked" : ""}></div><div class="field"><label for="audio-volume">بلندی صدای اعلان (۰ تا ۱۰۰)</label><input id="audio-volume" type="range" min="0" max="100" value="${state.settings.audioVolume ?? 45}"><button id="test-sound" class="btn ghost">آزمایش صدا</button></div><div class="switch-row"><label for="auto-rotate">گردش خودکار صفحات نمایشگر</label><input id="auto-rotate" type="checkbox" ${state.settings.autoRotate !== false ? "checked" : ""}></div><div class="actions" style="margin-top:16px"><button id="save-settings" class="btn primary">ذخیره تنظیمات</button></div></div><div class="card"><h2>نمایشگر دوم</h2><p style="color:var(--muted);line-height:2">با انتخاب «بازکردن نمایشگر»، پنجره نتایج روی مانیتور دوم به‌صورت تمام‌صفحه باز می‌شود. اگر فقط یک نمایشگر متصل باشد، پنجره عادی باز می‌شود تا آن را جابه‌جا کنید.</p><div class="actions"><button id="open-display-alt" class="btn primary">بازکردن نمایشگر</button><button id="close-display" class="btn ghost">بستن نمایشگر</button><button id="backup-alt" class="btn ghost">ذخیره نسخه پشتیبان</button></div></div></div>`;
 }
 
 function auditView() {
@@ -72,10 +79,13 @@ function auditView() {
 }
 
 function bindCurrentView() {
+  if (currentView === "dashboard") document.querySelector("#export-standings").addEventListener("click", () => exportReport({ type: "standings" }));
+  if (currentView === "draw") bindDraw();
   if (currentView === "entry") bindEntry();
   if (currentView === "teams") document.querySelector("#add-team")?.addEventListener("click", addTeam);
   if (currentView === "approvals") document.querySelectorAll("[data-action]").forEach((button) => button.addEventListener("click", () => mutateResult(button)));
   if (currentView === "settings") {
+    document.querySelector("#test-sound").addEventListener("click", () => window.scoreboardSound(Number(value("audio-volume"))));
     document.querySelector("#save-settings").addEventListener("click", saveSettings);
     document.querySelector("#open-display-alt").addEventListener("click", () => api.openDisplay());
     document.querySelector("#close-display").addEventListener("click", () => api.closeDisplay());
@@ -136,7 +146,7 @@ async function saveResult() {
 
 async function addTeam() { try { await api.addTeam({ name: value("team-name"), organization: value("team-org") }); notify("تیم جدید ثبت شد."); } catch (error) { notify(error.message, true); } }
 async function mutateResult(button) { try { if (button.dataset.action === "approve") await api.approveResult({ resultId: Number(button.dataset.id), approvedBy: "سرداور" }); else await api.reopenResult({ resultId: Number(button.dataset.id) }); notify(button.dataset.action === "approve" ? "نتیجه تأیید و روی نمایشگر منتشر شد." : "نتیجه برای اصلاح باز شد."); } catch (error) { notify(error.message, true); } }
-async function saveSettings() { await api.updateSettings({ competitionName: value("competition-name"), venue: value("competition-venue"), displayMessage: value("display-message"), audioEnabled: document.querySelector("#audio-enabled").checked }); notify("تنظیمات ذخیره شد."); }
+async function saveSettings() { await api.updateSettings({ competitionName: value("competition-name"), venue: value("competition-venue"), displayMessage: value("display-message"), audioEnabled: document.querySelector("#audio-enabled").checked, audioVolume: Number(value("audio-volume")), autoRotate: document.querySelector("#auto-rotate").checked }); notify("تنظیمات ذخیره شد."); }
 
 function resultText(result, discipline) { return discipline.mode === "score" ? `${result.scientificScore ?? "—"} / ${formatTime(result.scientificDurationMs)}` : formatTime(metric(result, discipline)); }
 function metric(result, discipline) { if (discipline.mode === "score") return result.scientificScore; if (discipline.mode === "pair_time") return (result.rawPrimaryMs + result.rawSecondaryMs) / 2 + result.penaltyMs; return result.rawPrimaryMs + result.penaltyMs; }
@@ -147,3 +157,45 @@ function value(id) { return document.getElementById(id)?.value ?? ""; }
 function escapeHtml(value) { return String(value ?? "").replace(/[&<>'"]/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" })[char]); }
 function escapeAttr(value) { return escapeHtml(value); }
 function notify(message, error = false) { const toast = document.querySelector("#toast"); toast.textContent = message; toast.className = `show${error ? " error" : ""}`; clearTimeout(notify.timer); notify.timer = setTimeout(() => { toast.className = ""; }, 3200); }
+
+
+function drawView() {
+  const draws = state.draws.filter(d => d.disciplineId === drawScope);
+  const latest = draws[0];
+  const missing = latest ? state.teams.filter(t => !latest.entries.some(e => e.teamId === t.id)).length : 0;
+  return `<div class="card hero"><h2>قرعه‌کشی ترتیب حضور تیم‌ها</h2><p>هر تیم دقیقاً یک نوبت می‌گیرد. نتیجه ذخیره می‌شود و روی امتیاز مسابقه اثری ندارد.</p></div>
+  <div class="card"><div class="form-grid"><div class="field"><label for="draw-scope">محدوده قرعه‌کشی</label><select id="draw-scope"><option value="all">ترتیب عمومی تیم‌ها</option>${state.disciplines.map(d => `<option value="${d.id}" ${drawScope === d.id ? "selected" : ""}>${escapeHtml(d.name)}</option>`).join("")}</select></div><div class="draw-info">${state.teams.length.toLocaleString("fa-IR")} تیم حاضر<br>پیش از قرعه‌کشی، فهرست تیم‌ها را کامل کنید.</div></div>
+  ${latest ? `<label class="draw-confirm"><input type="checkbox" id="confirm-redraw"> قرعه‌کشی مجدد این رشته را تأیید می‌کنم؛ نوبت قبلی در سوابق باقی بماند.</label>` : ""}
+  <button class="btn primary" id="run-draw" ${state.teams.length < 2 || drawBusy ? "disabled" : ""}>${drawBusy ? "در حال ثبت قرعه‌کشی…" : latest ? "اجرای قرعه‌کشی مجدد" : "شروع قرعه‌کشی"}</button><p class="inline-status" id="draw-status" role="status">${state.teams.length < 2 ? "حداقل دو تیم لازم است." : missing ? `${missing.toLocaleString("fa-IR")} تیم پس از آخرین قرعه‌کشی اضافه شده است؛ برای حضور آن‌ها قرعه‌کشی مجدد لازم است.` : ""}</p></div>
+  ${latest ? `<section class="card"><div class="section-actions"><div><h2>${escapeHtml(latest.title)}</h2><p class="draw-info">ثبت در ${new Date(latest.createdAt).toLocaleString("fa-IR")}</p></div><div class="actions"><button class="btn success" id="show-draw">نمایش قرعه‌کشی در سالن</button><button class="btn ghost" id="show-standings">بازگشت سالن به نتایج</button><button class="btn ghost" id="export-draw">دریافت PDF قرعه‌کشی</button></div></div>${drawTickets(latest)}</section>` : ""}
+  ${draws.length > 1 ? `<details class="card draw-history"><summary>سوابق قرعه‌کشی این بخش (${draws.length - 1})</summary><ol>${draws.slice(1).map(d => `<li>${new Date(d.createdAt).toLocaleString("fa-IR")}<button class="btn ghost" data-export-draw="${d.id}">دریافت PDF این نوبت</button><p>${d.entries.map((e,i) => `${(i+1).toLocaleString("fa-IR")}. ${escapeHtml(e.name)}`).join(" · ")}</p></li>`).join("")}</ol></details>` : ""}`;
+}
+function drawTickets(draw) {
+  return `<div class="draw-grid">${draw.entries.map((team, index) => `<article class="draw-ticket"><strong>${(index+1).toLocaleString("fa-IR")}</strong><div><b>${escapeHtml(team.name)}</b><small>${escapeHtml(team.organization || team.code)}</small></div></article>`).join("")}</div>`;
+}
+function bindDraw() {
+  document.querySelector("#draw-scope").addEventListener("change", event => { drawScope = event.target.value; render(); });
+  document.querySelector("#run-draw").addEventListener("click", async () => {
+    const previous = state.draws.find(d => d.disciplineId === drawScope);
+    if (drawBusy) return;
+    if (previous && !document.querySelector("#confirm-redraw")?.checked) {
+      document.querySelector("#draw-status").textContent = "برای اجرای دوباره، گزینه تأیید قرعه‌کشی مجدد را انتخاب کنید.";
+      document.querySelector("#confirm-redraw").focus(); return;
+    }
+    drawBusy = true; render();
+    try { state = await api.createDraw({ disciplineId: drawScope, replaceDrawId: previous?.id }); notify("قرعه‌کشی ثبت و ذخیره شد."); }
+    catch (error) { notify(error.message, true); }
+    finally { drawBusy = false; render(); }
+  });
+  const latest = state.draws.find(d => d.disciplineId === drawScope);
+  document.querySelector("#show-draw")?.addEventListener("click", async () => {
+    try { await api.setDisplay({ mode: "draw", drawId: latest.id }); await api.openDisplay(); notify("قرعه‌کشی روی نمایشگر سالن قرار گرفت."); } catch (error) { notify(error.message, true); }
+  });
+  document.querySelector("#show-standings")?.addEventListener("click", () => api.setDisplay({ mode: "standings" }));
+  document.querySelector("#export-draw")?.addEventListener("click", () => exportReport({ type: "draw", drawId: latest.id }));
+  document.querySelectorAll("[data-export-draw]").forEach(b => b.addEventListener("click", () => exportReport({ type: "draw", drawId: b.dataset.exportDraw })));
+}
+async function exportReport(payload) {
+  try { const result = await api.exportReport(payload); if (!result.canceled) notify("فایل PDF ذخیره شد."); }
+  catch (error) { notify(error.message, true); }
+}

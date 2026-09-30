@@ -3,3 +3,5 @@ release/
 *.log
 .DS_Store
 docs/fonts/*.ttf
+
+docs/.guide-render.html

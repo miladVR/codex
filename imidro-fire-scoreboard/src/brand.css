@@ -1,0 +1,7 @@
+@font-face{font-family:ScoreboardZar;src:url('../assets/fonts/BZar.woff') format('woff');font-weight:400;font-display:swap}
+@font-face{font-family:ScoreboardZar;src:url('../assets/fonts/BZar-Bold.woff') format('woff');font-weight:700 900;font-display:swap}
+:root{--fa-font:ScoreboardZar,'B Zar',IRANSans,Tahoma,sans-serif}
+body,button,input,select,textarea{font-family:var(--fa-font)}
+.org-credit{color:#c5d1df;text-align:center;font-size:16px;line-height:1.7;padding:12px 20px;border-top:1px solid #314156;flex-shrink:0}
+button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid #ffce73;outline-offset:3px}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}}

@@ -2,6 +2,8 @@
 
 const fs = require("node:fs");
 const path = require("node:path");
+const { randomInt, randomUUID } = require("node:crypto");
+const ORGANIZATION = "امور آموزش و توسعه شایستگی مجتمع مس سرچشمه رفسنجان";
 const { buildStandings } = require("./scoring.cjs");
 
 const DEFAULT_DISCIPLINES = [
@@ -52,6 +54,7 @@ class CompetitionStore {
     if (discipline.mode === "score" && scientificScore === null) throw new Error("امتیاز علمی وارد نشده است.");
     const now = new Date().toISOString();
     const existing = this.state.results.find((result) => result.teamId === teamId && result.disciplineId === discipline.id);
+    if (existing?.status === "approved") throw new Error("ابتدا نتیجه تأییدشده را برای اصلاح باز کنید.");
     const record = {
       id: existing?.id ?? this.state.nextResultId++,
       teamId,
@@ -78,6 +81,7 @@ class CompetitionStore {
 
   approveResult(payload) {
     const result = this.#result(payload.resultId);
+    if (result.status === "approved") return this.view();
     result.status = "approved";
     result.approvedBy = clean(payload.approvedBy || "سرداور", 100);
     result.approvedAt = new Date().toISOString();
@@ -98,12 +102,42 @@ class CompetitionStore {
     return this.view();
   }
 
+  createDraw(payload = {}) {
+    const scope = payload.disciplineId || "all";
+    if (scope !== "all" && !this.state.disciplines.some(d => d.id === scope)) throw new Error("رشته قرعه‌کشی معتبر نیست.");
+    if (this.state.teams.length < 2) throw new Error("برای قرعه‌کشی حداقل دو تیم ثبت کنید.");
+    const previous = this.state.draws.find(d => d.disciplineId === scope);
+    if (previous && payload.replaceDrawId !== previous.id) throw new Error("برای قرعه‌کشی مجدد، تأیید جایگزینی آخرین نوبت لازم است.");
+    const entries = this.state.teams.map(team => ({ teamId: team.id, name: team.name, organization: team.organization, code: team.code }));
+    for (let i = entries.length - 1; i > 0; i--) {
+      const j = randomInt(i + 1);
+      [entries[i], entries[j]] = [entries[j], entries[i]];
+    }
+    const draw = { id: randomUUID(), disciplineId: scope, createdAt: new Date().toISOString(), entries,
+      title: scope === "all" ? "ترتیب عمومی تیم‌ها" : this.state.disciplines.find(d => d.id === scope).name };
+    this.state.draws.unshift(draw);
+    this.#audit("create_draw", `قرعه‌کشی «${draw.title}» برای ${entries.length} تیم ثبت شد.`);
+    this.#persist();
+    return this.view();
+  }
+
+  setDisplay(payload) {
+    if (!["standings", "draw"].includes(payload.mode)) throw new Error("حالت نمایش معتبر نیست.");
+    if (payload.mode === "draw" && !this.state.draws.some(d => d.id === payload.drawId)) throw new Error("قرعه‌کشی پیدا نشد.");
+    this.state.settings.displayMode = payload.mode;
+    this.state.settings.displayDrawId = payload.mode === "draw" ? payload.drawId : null;
+    this.#persist();
+    return this.view();
+  }
+
   updateSettings(payload) {
     this.state.settings = {
       ...this.state.settings,
       competitionName: clean(payload.competitionName || this.state.settings.competitionName, 180),
       venue: clean(payload.venue || "", 180),
-      audioEnabled: Boolean(payload.audioEnabled),
+      audioEnabled: payload.audioEnabled === undefined ? this.state.settings.audioEnabled : Boolean(payload.audioEnabled),
+      audioVolume: boundedNumber(payload.audioVolume ?? this.state.settings.audioVolume ?? 45, 0, 100, "بلندی صدا"),
+      autoRotate: payload.autoRotate === undefined ? this.state.settings.autoRotate : Boolean(payload.autoRotate),
       displayMessage: clean(payload.displayMessage || "", 220)
     };
     this.#audit("settings", "تنظیمات نمایش مسابقه به‌روزرسانی شد.");
@@ -112,7 +146,7 @@ class CompetitionStore {
   }
 
   exportSnapshot(targetPath) {
-    fs.copyFileSync(this.dataPath, targetPath);
+    fs.writeFileSync(targetPath, JSON.stringify({ ...this.state, organizationCredit: ORGANIZATION }, null, 2), "utf8");
   }
 
   #result(id) {
@@ -134,14 +168,22 @@ class CompetitionStore {
     try {
       const parsed = JSON.parse(fs.readFileSync(this.dataPath, "utf8"));
       if (!Array.isArray(parsed.teams) || !Array.isArray(parsed.results)) throw new Error("invalid data");
+      parsed.draws ??= [];
+      parsed.settings = { audioVolume: 45, autoRotate: true, displayMode: "standings", displayDrawId: null, ...parsed.settings };
+      parsed.version = 2;
+      parsed.organizationCredit = ORGANIZATION;
       return parsed;
-    } catch {
+    } catch (error) {
+      if (error.code !== "ENOENT") throw new Error("فایل داده خوانده نشد؛ برای حفظ اطلاعات از نسخه پشتیبان استفاده کنید.", { cause: error });
       const initial = {
-        version: 1,
+        version: 2,
+        organizationCredit: ORGANIZATION,
+        draws: [],
         settings: {
           competitionName: "سومین دوره مسابقات علمی و عملیاتی آتش‌نشانان ایمیدرو",
           venue: "مجتمع مس سرچشمه رفسنجان · ۱۴۰۵",
           audioEnabled: true,
+          audioVolume: 45, autoRotate: true, displayMode: "standings", displayDrawId: null,
           displayMessage: "نتایج رسمی پس از تأیید سرداور نمایش داده می‌شوند."
         },
         disciplines: DEFAULT_DISCIPLINES,
@@ -174,4 +216,4 @@ function integer(value) { const number = Number(value); if (!Number.isInteger(nu
 function optionalDuration(value) { if (value === null || value === "" || value === undefined) return null; return Math.round(boundedNumber(value, 0, 5_999_990, "زمان")); }
 function boundedNumber(value, min, max, label) { const number = Number(value); if (!Number.isFinite(number) || number < min || number > max) throw new Error(`${label} نامعتبر است.`); return number; }
 
-module.exports = { CompetitionStore, DEFAULT_DISCIPLINES };
+module.exports = { CompetitionStore, DEFAULT_DISCIPLINES, ORGANIZATION };
