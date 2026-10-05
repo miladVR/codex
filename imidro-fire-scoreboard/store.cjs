@@ -4,7 +4,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const { randomInt, randomUUID } = require("node:crypto");
 const ORGANIZATION = "امور آموزش و توسعه شایستگی مجتمع مس سرچشمه رفسنجان";
-const { buildStandings } = require("./scoring.cjs");
+const { buildStandings, buildItemLeaderboard } = require("./scoring.cjs");
 
 const DEFAULT_DISCIPLINES = [
   { id: "scientific", name: "آزمون علمی", mode: "score", position: 1 },
@@ -23,7 +23,19 @@ class CompetitionStore {
   }
 
   view() {
-    return structuredClone({ ...this.state, standings: buildStandings(this.state) });
+    const standings = buildStandings(this.state);
+    const liveStandings = buildStandings(this.state, { includeDrafts: true });
+    const itemLeaderboards = Object.fromEntries(this.state.disciplines.map(item => [item.id, buildItemLeaderboard(this.state, item, { includeDrafts: true })]));
+    const team_scores = liveStandings.map(row => ({ team_id: row.team.id, draw_order: row.drawOrder,
+      total_rank: row.officialRank, official_total_rank: standings.find(official => official.team.id === row.team.id).officialRank,
+      item_scores: Object.fromEntries(this.state.disciplines.map(item => {
+        const entry = itemLeaderboards[item.id].find(itemRow => itemRow.team.id === row.team.id);
+        return [item.id, { draw_order: entry.drawOrder, rank: entry.rank, final_value: entry.finalValue,
+          raw_primary_ms: entry.result?.rawPrimaryMs ?? null, raw_secondary_ms: entry.result?.rawSecondaryMs ?? null,
+          penalty_ms: entry.result?.penaltyMs ?? null, scientific_duration_ms: entry.result?.scientificDurationMs ?? null,
+          status: entry.result?.status ?? "not_recorded", unit: item.mode === "score" ? "points" : "ms" }];
+      })) }));
+    return structuredClone({ ...this.state, standings, liveStandings, itemLeaderboards, team_scores });
   }
 
   addTeam(payload) {
@@ -106,14 +118,31 @@ class CompetitionStore {
     const scope = payload.disciplineId || "all";
     if (scope !== "all" && !this.state.disciplines.some(d => d.id === scope)) throw new Error("رشته قرعه‌کشی معتبر نیست.");
     if (this.state.teams.length < 2) throw new Error("برای قرعه‌کشی حداقل دو تیم ثبت کنید.");
+    if (this.state.results.some(result => scope === "all" || result.disciplineId === scope))
+      throw new Error("پس از شروع ثبت نتایج، نوبت اجرای این محدوده ثابت است و قابل تغییر نیست.");
     const previous = this.state.draws.find(d => d.disciplineId === scope);
     if (previous && payload.replaceDrawId !== previous.id) throw new Error("برای قرعه‌کشی مجدد، تأیید جایگزینی آخرین نوبت لازم است.");
-    const entries = this.state.teams.map(team => ({ teamId: team.id, name: team.name, organization: team.organization, code: team.code }));
-    for (let i = entries.length - 1; i > 0; i--) {
-      const j = randomInt(i + 1);
-      [entries[i], entries[j]] = [entries[j], entries[i]];
+    const method = payload.method ?? "auto";
+    if (!["auto", "manual"].includes(method)) throw new Error("روش قرعه‌کشی معتبر نیست.");
+    let entries = this.state.teams.map(team => ({ teamId: team.id, name: team.name, organization: team.organization, code: team.code }));
+    if (method === "manual") {
+      if (!Array.isArray(payload.entries) || payload.entries.length !== entries.length) throw new Error("نوبت همه تیم‌ها را وارد کنید.");
+      const orders = new Map(); const used = new Set();
+      for (const entry of payload.entries) {
+        const teamId = integer(entry.teamId), order = integer(entry.drawOrder);
+        if (!entries.some(team => team.teamId === teamId) || orders.has(teamId)) throw new Error("فهرست تیم‌های نوبت دستی معتبر نیست.");
+        if (order < 1 || order > entries.length || used.has(order)) throw new Error("شماره نوبت باید یکتا و از ۱ تا تعداد تیم‌ها باشد.");
+        orders.set(teamId, order); used.add(order);
+      }
+      entries = entries.map(entry => ({ ...entry, drawOrder: orders.get(entry.teamId) })).sort((a, b) => a.drawOrder - b.drawOrder);
+    } else {
+      for (let i = entries.length - 1; i > 0; i--) {
+        const j = randomInt(i + 1);
+        [entries[i], entries[j]] = [entries[j], entries[i]];
+      }
+      entries = entries.map((entry, index) => ({ ...entry, drawOrder: index + 1 }));
     }
-    const draw = { id: randomUUID(), disciplineId: scope, createdAt: new Date().toISOString(), entries,
+    const draw = { id: randomUUID(), disciplineId: scope, method, createdAt: new Date().toISOString(), entries,
       title: scope === "all" ? "ترتیب عمومی تیم‌ها" : this.state.disciplines.find(d => d.id === scope).name };
     this.state.draws.unshift(draw);
     this.#audit("create_draw", `قرعه‌کشی «${draw.title}» برای ${entries.length} تیم ثبت شد.`);
@@ -122,8 +151,10 @@ class CompetitionStore {
   }
 
   setDisplay(payload) {
-    if (!["standings", "draw"].includes(payload.mode)) throw new Error("حالت نمایش معتبر نیست.");
+    if (!["standings", "draw", "item"].includes(payload.mode)) throw new Error("حالت نمایش معتبر نیست.");
     if (payload.mode === "draw" && !this.state.draws.some(d => d.id === payload.drawId)) throw new Error("قرعه‌کشی پیدا نشد.");
+    if (payload.mode === "item" && !this.state.disciplines.some(item => item.id === payload.disciplineId)) throw new Error("رشته نمایش معتبر نیست.");
+    this.state.settings.displayItemId = payload.mode === "item" ? payload.disciplineId : null;
     this.state.settings.displayMode = payload.mode;
     this.state.settings.displayDrawId = payload.mode === "draw" ? payload.drawId : null;
     this.#persist();
@@ -169,22 +200,28 @@ class CompetitionStore {
       const parsed = JSON.parse(fs.readFileSync(this.dataPath, "utf8"));
       if (!Array.isArray(parsed.teams) || !Array.isArray(parsed.results)) throw new Error("invalid data");
       parsed.draws ??= [];
-      parsed.settings = { audioVolume: 45, autoRotate: true, displayMode: "standings", displayDrawId: null, ...parsed.settings };
-      parsed.version = 2;
+      parsed.draws = parsed.draws.map(draw => ({ ...draw, method: draw.method ?? "auto",
+        entries: draw.entries.map((entry, index) => ({ ...entry, drawOrder: entry.drawOrder ?? index + 1 })) }));
+      parsed.revision ??= 0;
+      parsed.settings = { audioVolume: 45, autoRotate: true, displayMode: "standings", displayDrawId: null, displayItemId: null, ...parsed.settings };
+      if (parsed.settings.displayMessage === "نتایج رسمی پس از تأیید سرداور نمایش داده می‌شوند.")
+        parsed.settings.displayMessage = "نتایج زنده تا تأیید سرداور موقت هستند؛ نوبت اجرا با رتبه متفاوت است.";
+      parsed.version = 3;
       parsed.organizationCredit = ORGANIZATION;
       return parsed;
     } catch (error) {
       if (error.code !== "ENOENT") throw new Error("فایل داده خوانده نشد؛ برای حفظ اطلاعات از نسخه پشتیبان استفاده کنید.", { cause: error });
       const initial = {
-        version: 2,
+        version: 3,
+        revision: 0,
         organizationCredit: ORGANIZATION,
         draws: [],
         settings: {
           competitionName: "سومین دوره مسابقات علمی و عملیاتی آتش‌نشانان ایمیدرو",
           venue: "مجتمع مس سرچشمه رفسنجان · ۱۴۰۵",
           audioEnabled: true,
-          audioVolume: 45, autoRotate: true, displayMode: "standings", displayDrawId: null,
-          displayMessage: "نتایج رسمی پس از تأیید سرداور نمایش داده می‌شوند."
+          audioVolume: 45, autoRotate: true, displayMode: "standings", displayDrawId: null, displayItemId: null,
+          displayMessage: "نتایج زنده تا تأیید سرداور موقت هستند؛ نوبت اجرا با رتبه متفاوت است."
         },
         disciplines: DEFAULT_DISCIPLINES,
         teams: [],
@@ -202,8 +239,15 @@ class CompetitionStore {
 
   #persist() {
     const tempPath = `${this.dataPath}.tmp`;
-    fs.writeFileSync(tempPath, JSON.stringify(this.state, null, 2), "utf8");
-    fs.renameSync(tempPath, this.dataPath);
+    this.state.revision += 1;
+    try {
+      fs.writeFileSync(tempPath, JSON.stringify(this.state, null, 2), "utf8");
+      fs.renameSync(tempPath, this.dataPath);
+    } catch (error) {
+      // Restore the last durable state: no phantom mutation can be broadcast later.
+      if (fs.existsSync(this.dataPath)) this.state = this.#read();
+      throw error;
+    }
     const stamp = new Date().toISOString().replace(/[:.]/g, "-");
     fs.copyFileSync(this.dataPath, path.join(this.backupPath, `backup-${stamp}.json`));
     const backups = fs.readdirSync(this.backupPath).filter((name) => name.endsWith(".json")).sort().reverse();

@@ -12,7 +12,13 @@ contextBridge.exposeInMainWorld("scoreboardAPI", {
   approveResult: (payload) => ipcRenderer.invoke("result:approve", payload),
   reopenResult: (payload) => ipcRenderer.invoke("result:reopen", payload),
   updateSettings: (payload) => ipcRenderer.invoke("settings:update", payload),
-  openDisplay: () => ipcRenderer.invoke("display:open"),
+  openDisplay: (payload) => ipcRenderer.invoke("display:open", payload),
+  getDisplayStatus: () => ipcRenderer.invoke("display:status"),
+  onDisplayChange: (callback) => {
+    const listener = (_event, status) => callback(status);
+    ipcRenderer.on("display:changed", listener);
+    return () => ipcRenderer.removeListener("display:changed", listener);
+  },
   closeDisplay: () => ipcRenderer.invoke("display:close"),
   backup: () => ipcRenderer.invoke("data:backup"),
   onStateChange: (callback) => {

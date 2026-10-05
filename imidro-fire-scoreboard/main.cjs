@@ -1,99 +1,36 @@
 "use strict";
-
 const path = require("node:path");
 const { app, BrowserWindow, dialog, ipcMain, screen } = require("electron");
 const { CompetitionStore } = require("./store.cjs");
-
+const { DisplayController, registerStateIPC } = require("./display-controller.cjs");
 app.commandLine.appendSwitch("autoplay-policy", "no-user-gesture-required");
-
-let adminWindow;
-let displayWindow;
-let store;
-
+let adminWindow, display, store;
 function createAdminWindow() {
-  adminWindow = new BrowserWindow({
-    width: 1480,
-    height: 920,
-    minWidth: 1100,
-    minHeight: 720,
-    backgroundColor: "#07111f",
-    title: "سامانه امتیازدهی آتش‌نشانان ایمیدرو",
-    webPreferences: {
-      preload: path.join(__dirname, "preload.cjs"),
-      contextIsolation: true,
-      nodeIntegration: false,
-      sandbox: true
-    }
-  });
-  adminWindow.loadFile(path.join(__dirname, "src", "index.html"));
-  adminWindow.on("closed", () => { adminWindow = null; });
+  adminWindow = new BrowserWindow({ width: 1480, height: 920, minWidth: 1100, minHeight: 720,
+    backgroundColor: "#07111f", title: "سامانه امتیازدهی آتش‌نشانان ایمیدرو",
+    webPreferences: { preload: path.join(__dirname, "preload.cjs"), contextIsolation: true, nodeIntegration: false, sandbox: true } });
+  adminWindow.loadFile(path.join(__dirname, "src", "index.html")).catch(error => dialog.showErrorBox("خطای پنل مدیریت", error.message));
+  adminWindow.on("closed", () => { display?.close(); adminWindow = null; });
 }
-
-function openDisplay() {
-  if (displayWindow && !displayWindow.isDestroyed()) {
-    displayWindow.focus();
-    return;
-  }
-  const primary = screen.getPrimaryDisplay();
-  const target = screen.getAllDisplays().find((item) => item.id !== primary.id) ?? primary;
-  displayWindow = new BrowserWindow({
-    x: target.bounds.x,
-    y: target.bounds.y,
-    width: target.bounds.width,
-    height: target.bounds.height,
-    fullscreen: target.id !== primary.id,
-    frame: target.id === primary.id,
-    autoHideMenuBar: true,
-    backgroundColor: "#030915",
-    title: "نمایش زنده نتایج",
-    webPreferences: {
-      preload: path.join(__dirname, "preload.cjs"),
-      contextIsolation: true,
-      nodeIntegration: false,
-      sandbox: true
-    }
-  });
-  displayWindow.loadFile(path.join(__dirname, "src", "display.html"));
-  displayWindow.on("closed", () => { displayWindow = null; });
+if (!app.requestSingleInstanceLock()) app.quit();
+else {
+  app.on("second-instance", () => { if (adminWindow) { if (adminWindow.isMinimized()) adminWindow.restore(); adminWindow.focus(); } });
+  app.whenReady().then(() => {
+    store = new CompetitionStore(app.getPath("userData"));
+    display = new DisplayController({ BrowserWindow, screen, getState: () => store.view(), onStatus: status => {
+      if (adminWindow && !adminWindow.isDestroyed()) adminWindow.webContents.send("display:changed", status);
+    } });
+    const { assertAdmin } = registerStateIPC({ ipcMain, getStore: () => store, getAdmin: () => adminWindow, display });
+    ipcMain.handle("data:backup", async event => {
+      assertAdmin(event);
+      const result = await dialog.showSaveDialog(adminWindow, { title: "ذخیره نسخه پشتیبان",
+        defaultPath: `imidro-fire-backup-${new Date().toISOString().slice(0, 10)}.json`, filters: [{ name: "JSON", extensions: ["json"] }] });
+      if (result.canceled || !result.filePath) return { canceled: true };
+      store.exportSnapshot(result.filePath); return { canceled: false, filePath: result.filePath };
+    });
+    require("./report.cjs").registerReports({ ipcMain, dialog, BrowserWindow, getStore: () => store, getWindow: () => adminWindow, assertAdmin });
+    createAdminWindow();
+    app.on("activate", () => { if (!adminWindow) createAdminWindow(); });
+  }).catch(error => { dialog.showErrorBox("خطای راه‌اندازی", error.message); app.quit(); });
 }
-
-function broadcast() {
-  const state = store.view();
-  for (const window of [adminWindow, displayWindow]) {
-    if (window && !window.isDestroyed()) window.webContents.send("state:changed", state);
-  }
-  return state;
-}
-
-function handleMutation(channel, operation) {
-  ipcMain.handle(channel, (_event, payload = {}) => {
-    const state = operation(payload);
-    broadcast();
-    return state;
-  });
-}
-
-app.whenReady().then(() => {
-  store = new CompetitionStore(app.getPath("userData"));
-  ipcMain.handle("state:get", () => store.view());
-  handleMutation("draw:create", (payload) => store.createDraw(payload));
-  handleMutation("display:set", (payload) => store.setDisplay(payload));
-  handleMutation("team:add", (payload) => store.addTeam(payload));
-  handleMutation("result:save", (payload) => store.saveResult(payload));
-  handleMutation("result:approve", (payload) => store.approveResult(payload));
-  handleMutation("result:reopen", (payload) => store.reopenResult(payload));
-  handleMutation("settings:update", (payload) => store.updateSettings(payload));
-  ipcMain.handle("display:open", () => { openDisplay(); return { ok: true }; });
-  ipcMain.handle("display:close", () => { if (displayWindow && !displayWindow.isDestroyed()) displayWindow.close(); return { ok: true }; });
-  ipcMain.handle("data:backup", async () => {
-    const result = await dialog.showSaveDialog(adminWindow, { title: "ذخیره نسخه پشتیبان", defaultPath: `imidro-fire-backup-${new Date().toISOString().slice(0, 10)}.json`, filters: [{ name: "JSON", extensions: ["json"] }] });
-    if (result.canceled || !result.filePath) return { canceled: true };
-    store.exportSnapshot(result.filePath);
-    return { canceled: false, filePath: result.filePath };
-  });
-  require("./report.cjs").registerReports({ ipcMain, dialog, BrowserWindow, getStore: () => store, getWindow: () => adminWindow });
-  createAdminWindow();
-  app.on("activate", () => { if (BrowserWindow.getAllWindows().length === 0) createAdminWindow(); });
-});
-
 app.on("window-all-closed", () => { if (process.platform !== "darwin") app.quit(); });

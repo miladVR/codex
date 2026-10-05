@@ -5,13 +5,19 @@ let state;
 let currentView = "dashboard";
 let drawScope = "all";
 let drawBusy = false;
+let displayStatus;
+let leaderboardScope = "all";
+let selectedTeam = "", selectedDiscipline = "scientific";
 const titles = { dashboard: "تابلوی نتایج", entry: "ثبت نتیجه", approvals: "تأیید سرداور", teams: "تیم‌ها", settings: "تنظیمات و نمایشگر", draw: "قرعه‌کشی تیم‌ها", audit: "سوابق تغییرات" };
 
 document.querySelectorAll(".nav-item").forEach((button) => button.addEventListener("click", () => setView(button.dataset.view)));
-document.querySelector("#display-btn").addEventListener("click", () => api.openDisplay().then(() => notify("نمایشگر نتایج باز شد.")));
+document.querySelector("#display-btn").addEventListener("click", () => openDisplay().catch(error => notify(`خطای نمایشگر: ${error.message}`, true)));
 document.querySelector("#backup-btn").addEventListener("click", async () => { const result = await api.backup(); if (!result.canceled) notify("نسخه پشتیبان ذخیره شد."); });
-api.onStateChange((next) => { state = next; render(); });
-api.getState().then((initial) => { state = initial; render(); });
+function receive(next) { if (state && next.revision < state.revision) return; state = next; render(); }
+api.onStateChange(receive);
+api.getState().then(receive).catch(error => notify(error.message, true));
+api.onDisplayChange(status => { displayStatus = status; if (currentView === "settings") render(); });
+api.getDisplayStatus().then(status => { displayStatus = status; if (currentView === "settings") render(); }).catch(error => notify(error.message, true));
 
 function setView(view) {
   currentView = view;
@@ -38,21 +44,21 @@ function render() {
 function dashboardView() {
   const approved = state.results.filter((result) => result.status === "approved").length;
   const drafts = state.results.filter((result) => result.status === "draft").length;
-  return `<div class="card hero"><h2>${escapeHtml(state.settings.competitionName)}</h2><p>جدول رسمی فقط از نتایج تأییدشده ساخته می‌شود؛ کمترین مجموع رتبه‌ها، جایگاه بهتر را تعیین می‌کند.</p></div>
+  return `<div class="card hero"><h2>${escapeHtml(state.settings.competitionName)}</h2><p>ثبت و ویرایش بلافاصله در جدول زنده منتشر می‌شود؛ نتایج تأییدنشده موقت هستند. PDF رسمی فقط نتایج تأییدشده را دارد.</p></div>
   <div class="grid metrics"><div class="metric"><b>${state.teams.length}</b><span>تیم حاضر</span></div><div class="metric"><b>${approved}</b><span>نتیجه تأییدشده</span></div><div class="metric"><b>${drafts}</b><span>در انتظار تأیید</span></div><div class="metric"><b>${state.disciplines.length}</b><span>رشته مسابقه</span></div></div>
-  <div class="card"><div class="section-actions"><h2>جدول امتیازات تیمی</h2><button id="export-standings" class="btn ghost">دریافت PDF نتایج</button></div>${standingsTable()}</div>`;
+  <div class="card"><div class="section-actions"><h2>جدول امتیازات تیمی</h2><button id="export-standings" class="btn ghost">دریافت PDF نتایج</button></div>${standingsTable()}</div><div class="card"><h2>تابلو زندهٔ هر رشته</h2><div class="field"><label for="leaderboard-scope">صفحهٔ سالن</label><select id="leaderboard-scope"><option value="all">کل مسابقات</option>${state.disciplines.map(item => `<option value="${item.id}" ${leaderboardScope === item.id ? "selected" : ""}>${escapeHtml(item.name)}</option>`).join("")}</select></div><button id="publish-leaderboard" class="btn primary">نمایش این صفحه در سالن</button>${itemTable()}</div>`;
 }
 
 function standingsTable() {
   if (!state.teams.length) return `<div class="empty">هنوز تیمی ثبت نشده است.</div>`;
   const heads = state.disciplines.map((item) => `<th class="center">${escapeHtml(item.name)}</th>`).join("");
-  const rows = state.standings.map((row) => `<tr><td><span class="rank ${row.officialRank === 1 ? "first" : ""}">${row.officialRank ?? "—"}</span></td><td><b>${escapeHtml(row.team.name)}</b><br><small>${escapeHtml(row.team.organization)}</small></td>${state.disciplines.map((item) => `<td class="center">${row.disciplineRanks[item.id] ?? "—"}</td>`).join("")}<td class="center"><b>${row.completed ? row.total : "—"}</b></td><td class="center"><span class="tag ${row.completed === state.disciplines.length ? "green" : ""}">${row.completed}/${state.disciplines.length}</span></td></tr>`).join("");
-  return `<div class="table-wrap"><table><thead><tr><th>رتبه</th><th>تیم</th>${heads}<th class="center">مجموع</th><th class="center">تکمیل</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+  const rows = state.liveStandings.map((row) => `<tr><td><span class="rank ${row.officialRank === 1 ? "first" : ""}">${row.officialRank ?? "—"}</span></td><td><span class="turn">${row.drawOrder ?? "—"}</span></td><td><b>${escapeHtml(row.team.name)}</b><br><small>${escapeHtml(row.team.organization)}</small></td>${state.disciplines.map((item) => `<td class="center">${row.disciplineRanks[item.id] ?? "—"}</td>`).join("")}<td class="center"><b>${row.completed ? row.total : "—"}</b></td><td class="center"><span class="tag ${row.completed === state.disciplines.length ? "green" : ""}">${row.completed}/${state.disciplines.length}</span></td></tr>`).join("");
+  return `<div class="table-wrap"><table><thead><tr><th>رتبه زنده</th><th>نوبت عمومی</th><th>تیم</th>${heads}<th class="center">مجموع</th><th class="center">تکمیل</th></tr></thead><tbody>${rows}</tbody></table></div>`;
 }
 
 function entryView() {
   if (!state.teams.length) return `<div class="card empty">ابتدا از بخش «تیم‌ها» حداقل یک تیم ثبت کنید.</div>`;
-  return `<div class="entry-layout"><div class="card"><h2>فرم ثبت نتیجه داور</h2><div class="form-grid"><div class="field"><label>رشته مسابقه</label><select id="discipline">${state.disciplines.map((item) => `<option value="${item.id}">${escapeHtml(item.name)}</option>`).join("")}</select></div><div class="field"><label>تیم</label><select id="team">${state.teams.map((item) => `<option value="${item.id}">${escapeHtml(item.name)}</option>`).join("")}</select></div></div><div id="result-fields"></div><div class="field"><label>شرح خطا یا توضیحات داور</label><textarea id="note" placeholder="علت جریمه، وضعیت خاص یا توضیح ضروری…"></textarea></div><div class="result-preview"><span>نتیجه محاسبه‌شده</span><strong id="preview">—</strong></div><div class="actions" style="margin-top:16px"><button id="save-result" class="btn primary">ذخیره و ارسال برای تأیید</button></div></div><aside class="card guide"><h3>کنترل قبل از ثبت</h3><ol><li>نام تیم و رشته را با برگه داوری تطبیق دهید.</li><li>دقیقه، ثانیه و صدم ثانیه را از فهرست‌های جداگانه انتخاب کنید.</li><li>علت هر جریمه را در توضیحات بنویسید.</li><li>نتیجه پس از تأیید سرداور روی نمایشگر عمومی دیده می‌شود.</li></ol></aside></div>`;
+  return `<div class="entry-layout"><div class="card"><h2>فرم ثبت نتیجه داور</h2><div class="form-grid"><div class="field"><label>رشته مسابقه</label><select id="discipline">${state.disciplines.map((item) => `<option value="${item.id}" ${item.id === selectedDiscipline ? "selected" : ""}>${escapeHtml(item.name)}</option>`).join("")}</select></div><div class="field"><label>تیم</label><select id="team">${state.teams.map((item) => `<option value="${item.id}" ${String(item.id) === selectedTeam ? "selected" : ""}>${escapeHtml(item.name)}</option>`).join("")}</select></div></div><div id="result-fields"></div><div class="field"><label>شرح خطا یا توضیحات داور</label><textarea id="note" placeholder="علت جریمه، وضعیت خاص یا توضیح ضروری…"></textarea></div><div class="result-preview"><span>نتیجه محاسبه‌شده</span><strong id="preview">—</strong></div><div class="actions" style="margin-top:16px"><button id="save-result" class="btn primary">ذخیره و ارسال برای تأیید</button></div></div><aside class="card guide"><h3>کنترل قبل از ثبت</h3><ol><li>نام تیم و رشته را با برگه داوری تطبیق دهید.</li><li>دقیقه، ثانیه و صدم ثانیه را از فهرست‌های جداگانه انتخاب کنید.</li><li>علت هر جریمه را در توضیحات بنویسید.</li><li>نتیجه فوراً با برچسب موقت روی نمایشگر منتشر می‌شود؛ تأیید سرداور آن را رسمی و قفل می‌کند.</li></ol></aside></div>`;
 }
 
 function approvalsView() {
@@ -71,7 +77,7 @@ function teamsView() {
 }
 
 function settingsView() {
-  return `<div class="grid settings-grid"><div class="card"><h2>مشخصات مسابقه</h2><div class="field"><label>عنوان مسابقه</label><input id="competition-name" value="${escapeAttr(state.settings.competitionName)}"></div><div class="field"><label>محل و سال برگزاری</label><input id="competition-venue" value="${escapeAttr(state.settings.venue)}"></div><div class="field"><label>پیام پایین نمایشگر</label><input id="display-message" value="${escapeAttr(state.settings.displayMessage)}"></div><div class="switch-row"><span>پخش صدای اعلان نتیجه</span><input id="audio-enabled" type="checkbox" ${state.settings.audioEnabled ? "checked" : ""}></div><div class="field"><label for="audio-volume">بلندی صدای اعلان (۰ تا ۱۰۰)</label><input id="audio-volume" type="range" min="0" max="100" value="${state.settings.audioVolume ?? 45}"><button id="test-sound" class="btn ghost">آزمایش صدا</button></div><div class="switch-row"><label for="auto-rotate">گردش خودکار صفحات نمایشگر</label><input id="auto-rotate" type="checkbox" ${state.settings.autoRotate !== false ? "checked" : ""}></div><div class="actions" style="margin-top:16px"><button id="save-settings" class="btn primary">ذخیره تنظیمات</button></div></div><div class="card"><h2>نمایشگر دوم</h2><p style="color:var(--muted);line-height:2">با انتخاب «بازکردن نمایشگر»، پنجره نتایج روی مانیتور دوم به‌صورت تمام‌صفحه باز می‌شود. اگر فقط یک نمایشگر متصل باشد، پنجره عادی باز می‌شود تا آن را جابه‌جا کنید.</p><div class="actions"><button id="open-display-alt" class="btn primary">بازکردن نمایشگر</button><button id="close-display" class="btn ghost">بستن نمایشگر</button><button id="backup-alt" class="btn ghost">ذخیره نسخه پشتیبان</button></div></div></div>`;
+  return `<div class="grid settings-grid"><div class="card"><h2>مشخصات مسابقه</h2><div class="field"><label>عنوان مسابقه</label><input id="competition-name" value="${escapeAttr(state.settings.competitionName)}"></div><div class="field"><label>محل و سال برگزاری</label><input id="competition-venue" value="${escapeAttr(state.settings.venue)}"></div><div class="field"><label>پیام پایین نمایشگر</label><input id="display-message" value="${escapeAttr(state.settings.displayMessage)}"></div><div class="switch-row"><span>پخش صدای اعلان نتیجه</span><input id="audio-enabled" type="checkbox" ${state.settings.audioEnabled ? "checked" : ""}></div><div class="field"><label for="audio-volume">بلندی صدای اعلان (۰ تا ۱۰۰)</label><input id="audio-volume" type="range" min="0" max="100" value="${state.settings.audioVolume ?? 45}"><button id="test-sound" class="btn ghost">آزمایش صدا</button></div><div class="switch-row"><label for="auto-rotate">گردش خودکار صفحات نمایشگر</label><input id="auto-rotate" type="checkbox" ${state.settings.autoRotate !== false ? "checked" : ""}></div><div class="actions" style="margin-top:16px"><button id="save-settings" class="btn primary">ذخیره تنظیمات</button></div></div><div class="card"><h2>نمایشگر دوم</h2><p style="color:var(--muted);line-height:2">با انتخاب «بازکردن نمایشگر»، پنجره نتایج روی مانیتور دوم به‌صورت تمام‌صفحه باز می‌شود. اگر فقط یک نمایشگر متصل باشد، پنجره عادی باز می‌شود تا آن را جابه‌جا کنید.</p><p class="inline-status" id="display-status" role="status">${escapeHtml(displayStatus?.error || (displayStatus?.open ? "پنجره سالن باز است" : "پنجره سالن بسته است"))}</p><div class="field"><label for="window-mode">حالت خروجی پنجره</label><select id="window-mode"><option value="extend" ${displayStatus?.mode !== "mirror" ? "selected" : ""}>Extend — نمایشگر مستقل سالن</option><option value="mirror" ${displayStatus?.mode === "mirror" ? "selected" : ""}>Mirror — پیش‌نمایش همان تابلو روی اصلی</option></select></div><div class="field"><label for="target-display">نمایشگر مقصد</label><select id="target-display"><option value="">انتخاب خودکار</option>${(displayStatus?.displays ?? []).map(item => `<option value="${item.id}" ${displayStatus?.targetId === item.id ? "selected" : ""}>${escapeHtml(item.label)} ${item.primary ? "(اصلی)" : "(دوم)"}</option>`).join("")}</select></div><p>Mirror اینجا پیش‌نمایش پنجره است؛ حالت Duplicate/Extend ویندوز را با Win+P تنظیم کنید. برنامه تنظیمات سیستم‌عامل را تغییر نمی‌دهد.</p><div class="actions"><button id="open-display-alt" class="btn primary">بازکردن نمایشگر</button><button id="close-display" class="btn ghost">بستن نمایشگر</button><button id="backup-alt" class="btn ghost">ذخیره نسخه پشتیبان</button></div></div></div>`;
 }
 
 function auditView() {
@@ -79,7 +85,14 @@ function auditView() {
 }
 
 function bindCurrentView() {
-  if (currentView === "dashboard") document.querySelector("#export-standings").addEventListener("click", () => exportReport({ type: "standings" }));
+  if (currentView === "dashboard") {
+    document.querySelector("#export-standings").addEventListener("click", () => exportReport({ type: "standings" }));
+    document.querySelector("#leaderboard-scope").addEventListener("change", event => { leaderboardScope = event.target.value; render(); });
+    document.querySelector("#publish-leaderboard").addEventListener("click", async () => {
+      try { await api.setDisplay(leaderboardScope === "all" ? { mode: "standings" } : { mode: "item", disciplineId: leaderboardScope }); await openDisplay(); }
+      catch (error) { notify(error.message, true); }
+    });
+  }
   if (currentView === "draw") bindDraw();
   if (currentView === "entry") bindEntry();
   if (currentView === "teams") document.querySelector("#add-team")?.addEventListener("click", addTeam);
@@ -87,15 +100,16 @@ function bindCurrentView() {
   if (currentView === "settings") {
     document.querySelector("#test-sound").addEventListener("click", () => window.scoreboardSound(Number(value("audio-volume"))));
     document.querySelector("#save-settings").addEventListener("click", saveSettings);
-    document.querySelector("#open-display-alt").addEventListener("click", () => api.openDisplay());
-    document.querySelector("#close-display").addEventListener("click", () => api.closeDisplay());
+    document.querySelector("#open-display-alt").addEventListener("click", () => openDisplay({ mode: value("window-mode"), displayId: value("target-display") || undefined }).catch(error => notify(`خطای نمایشگر: ${error.message}`, true)));
+    document.querySelector("#close-display").addEventListener("click", async () => { try { displayStatus = await api.closeDisplay(); render(); } catch (error) { notify(error.message, true); } });
     document.querySelector("#backup-alt").addEventListener("click", () => api.backup());
   }
 }
 
 function bindEntry() {
   const discipline = document.querySelector("#discipline");
-  discipline.addEventListener("change", renderResultFields);
+  discipline.addEventListener("change", () => { selectedDiscipline = discipline.value; renderResultFields(); });
+  document.querySelector("#team").addEventListener("change", event => { selectedTeam = event.target.value; renderResultFields(); });
   document.querySelector("#save-result").addEventListener("click", saveResult);
   renderResultFields();
 }
@@ -108,6 +122,19 @@ function renderResultFields() {
   } else {
     container.innerHTML = `<div class="form-grid" style="margin-top:17px"><div class="field"><label>${discipline.mode === "pair_time" ? "نام ورزشکار اول" : "نام ورزشکار"}</label><input id="athlete-primary"></div>${discipline.mode === "pair_time" ? `<div class="field"><label>نام ورزشکار دوم</label><input id="athlete-secondary"></div>` : ""}<div class="field"><label>زمان ${discipline.mode === "pair_time" ? "نفر اول" : "خام"}</label>${timePicker("primary")}</div>${discipline.mode === "pair_time" ? `<div class="field"><label>زمان نفر دوم</label>${timePicker("secondary")}</div>` : ""}<div class="field"><label>مجموع جریمه (ثانیه)</label><input id="penalty" type="number" min="0" max="3600" step="1" value="0"></div><div class="field"><label>نام داور</label><input id="judge" placeholder="نام ثبت‌کننده نتیجه"></div></div>`;
   }
+  const existing = state.results.find(result => result.teamId === Number(value("team")) && result.disciplineId === discipline.id);
+  if (existing) {
+    const values = { "scientific-score": existing.scientificScore, "athlete-primary": existing.athletePrimary, "athlete-secondary": existing.athleteSecondary, penalty: existing.penaltyMs / 1000, judge: existing.judge, note: existing.note };
+    for (const [id, saved] of Object.entries(values)) { const input = document.getElementById(id); if (input) input.value = saved ?? ""; }
+    for (const [prefix, ms] of [["primary", existing.rawPrimaryMs], ["secondary", existing.rawSecondaryMs], ["scientific", existing.scientificDurationMs]]) {
+      if (ms == null) continue;
+      for (const [part, saved] of [["m", Math.floor(ms / 60000)], ["s", Math.floor(ms % 60000 / 1000)], ["h", Math.floor(ms % 1000 / 10)]]) {
+        const input = document.getElementById(`${prefix}-${part}`); if (input) input.value = String(saved);
+      }
+    }
+  } else document.querySelector("#note").value = "";
+  document.querySelector("#save-result").disabled = existing?.status === "approved";
+  container.querySelectorAll(".time-part").forEach(part => part.querySelector("label").htmlFor = part.querySelector("select").id);
   container.querySelectorAll("select,input").forEach((field) => field.addEventListener("input", updatePreview));
   updatePreview();
 }
@@ -139,18 +166,19 @@ function updatePreview() {
 async function saveResult() {
   const discipline = disciplineById(value("discipline"));
   try {
+    selectedTeam = value("team"); selectedDiscipline = discipline.id;
     await api.saveResult({ teamId: Number(value("team")), disciplineId: discipline.id, athletePrimary: value("athlete-primary"), athleteSecondary: value("athlete-secondary"), rawPrimaryMs: discipline.mode === "score" ? null : readTime("primary"), rawSecondaryMs: discipline.mode === "pair_time" ? readTime("secondary") : null, penaltyMs: (Number(value("penalty")) || 0) * 1000, scientificScore: discipline.mode === "score" ? value("scientific-score") : null, scientificDurationMs: discipline.mode === "score" ? readTime("scientific") : null, note: value("note"), judge: value("judge") });
-    notify("نتیجه به صف تأیید سرداور ارسال شد.");
+    notify("نتیجه فوراً در جدول زنده منتشر و به صف تأیید سرداور ارسال شد.");
   } catch (error) { notify(error.message, true); }
 }
 
 async function addTeam() { try { await api.addTeam({ name: value("team-name"), organization: value("team-org") }); notify("تیم جدید ثبت شد."); } catch (error) { notify(error.message, true); } }
 async function mutateResult(button) { try { if (button.dataset.action === "approve") await api.approveResult({ resultId: Number(button.dataset.id), approvedBy: "سرداور" }); else await api.reopenResult({ resultId: Number(button.dataset.id) }); notify(button.dataset.action === "approve" ? "نتیجه تأیید و روی نمایشگر منتشر شد." : "نتیجه برای اصلاح باز شد."); } catch (error) { notify(error.message, true); } }
-async function saveSettings() { await api.updateSettings({ competitionName: value("competition-name"), venue: value("competition-venue"), displayMessage: value("display-message"), audioEnabled: document.querySelector("#audio-enabled").checked, audioVolume: Number(value("audio-volume")), autoRotate: document.querySelector("#auto-rotate").checked }); notify("تنظیمات ذخیره شد."); }
+async function saveSettings() { try { await api.updateSettings({ competitionName: value("competition-name"), venue: value("competition-venue"), displayMessage: value("display-message"), audioEnabled: document.querySelector("#audio-enabled").checked, audioVolume: Number(value("audio-volume")), autoRotate: document.querySelector("#auto-rotate").checked }); notify("تنظیمات ذخیره شد."); } catch (error) { notify(error.message, true); } }
 
 function resultText(result, discipline) { return discipline.mode === "score" ? `${result.scientificScore ?? "—"} / ${formatTime(result.scientificDurationMs)}` : formatTime(metric(result, discipline)); }
 function metric(result, discipline) { if (discipline.mode === "score") return result.scientificScore; if (discipline.mode === "pair_time") return (result.rawPrimaryMs + result.rawSecondaryMs) / 2 + result.penaltyMs; return result.rawPrimaryMs + result.penaltyMs; }
-function formatTime(ms) { if (!Number.isFinite(ms)) return "—"; const total = Math.round(ms / 10); return `${String(Math.floor(total / 6000)).padStart(2, "0")}:${String(Math.floor((total % 6000) / 100)).padStart(2, "0")}.${String(total % 100).padStart(2, "0")}`; }
+function formatTime(ms) { if (!Number.isFinite(ms)) return "—"; const total = Math.round(ms); return `${String(Math.floor(total / 60000)).padStart(2, "0")}:${String(Math.floor((total % 60000) / 1000)).padStart(2, "0")}.${String(total % 1000).padStart(3, "0")}`; }
 function teamById(id) { return state.teams.find((item) => item.id === id); }
 function disciplineById(id) { return state.disciplines.find((item) => item.id === id); }
 function value(id) { return document.getElementById(id)?.value ?? ""; }
@@ -159,19 +187,29 @@ function escapeAttr(value) { return escapeHtml(value); }
 function notify(message, error = false) { const toast = document.querySelector("#toast"); toast.textContent = message; toast.className = `show${error ? " error" : ""}`; clearTimeout(notify.timer); notify.timer = setTimeout(() => { toast.className = ""; }, 3200); }
 
 
+async function openDisplay(payload) {
+  displayStatus = await api.openDisplay(payload);
+  notify(displayStatus.displays.length < 2 ? "تابلو باز شد؛ برای خروجی مستقل، نمایشگر دوم و Win+P → Extend لازم است." : "تابلو سالن آماده است.");
+}
+function itemTable() {
+  if (leaderboardScope === "all") return "";
+  const discipline = disciplineById(leaderboardScope);
+  return `<div class="table-wrap"><table><thead><tr><th>رتبه امتیازی</th><th>نوبت اجرا</th><th>تیم</th><th>رکورد نهایی / نمره</th><th>وضعیت</th></tr></thead><tbody>${state.itemLeaderboards[leaderboardScope].map(row => `<tr><td>${row.rank ?? "—"}</td><td><span class="turn">${row.drawOrder ?? "—"}</span></td><td>${escapeHtml(row.team.name)}</td><td>${discipline.mode === "score" ? row.finalValue ?? "—" : formatTime(row.finalValue)}</td><td>${!row.result ? "ثبت نشده" : row.result.status === "approved" ? "تأییدشده" : "موقت"}</td></tr>`).join("")}</tbody></table></div>`;
+}
 function drawView() {
   const draws = state.draws.filter(d => d.disciplineId === drawScope);
   const latest = draws[0];
   const missing = latest ? state.teams.filter(t => !latest.entries.some(e => e.teamId === t.id)).length : 0;
   return `<div class="card hero"><h2>قرعه‌کشی ترتیب حضور تیم‌ها</h2><p>هر تیم دقیقاً یک نوبت می‌گیرد. نتیجه ذخیره می‌شود و روی امتیاز مسابقه اثری ندارد.</p></div>
-  <div class="card"><div class="form-grid"><div class="field"><label for="draw-scope">محدوده قرعه‌کشی</label><select id="draw-scope"><option value="all">ترتیب عمومی تیم‌ها</option>${state.disciplines.map(d => `<option value="${d.id}" ${drawScope === d.id ? "selected" : ""}>${escapeHtml(d.name)}</option>`).join("")}</select></div><div class="draw-info">${state.teams.length.toLocaleString("fa-IR")} تیم حاضر<br>پیش از قرعه‌کشی، فهرست تیم‌ها را کامل کنید.</div></div>
+  <div class="card"><div class="form-grid"><div class="field"><label for="draw-scope">محدوده قرعه‌کشی</label><select id="draw-scope"><option value="all">ترتیب عمومی تیم‌ها</option>${state.disciplines.map(d => `<option value="${d.id}" ${drawScope === d.id ? "selected" : ""}>${escapeHtml(d.name)}</option>`).join("")}</select></div><div class="draw-info">${state.teams.length.toLocaleString("fa-IR")} تیم حاضر<br>پیش از قرعه‌کشی، فهرست تیم‌ها را کامل کنید. پس از ثبت اولین نتیجهٔ این محدوده، نوبت‌ها ثابت و غیرقابل‌تغییر هستند.</div></div>
   ${latest ? `<label class="draw-confirm"><input type="checkbox" id="confirm-redraw"> قرعه‌کشی مجدد این رشته را تأیید می‌کنم؛ نوبت قبلی در سوابق باقی بماند.</label>` : ""}
-  <button class="btn primary" id="run-draw" ${state.teams.length < 2 || drawBusy ? "disabled" : ""}>${drawBusy ? "در حال ثبت قرعه‌کشی…" : latest ? "اجرای قرعه‌کشی مجدد" : "شروع قرعه‌کشی"}</button><p class="inline-status" id="draw-status" role="status">${state.teams.length < 2 ? "حداقل دو تیم لازم است." : missing ? `${missing.toLocaleString("fa-IR")} تیم پس از آخرین قرعه‌کشی اضافه شده است؛ برای حضور آن‌ها قرعه‌کشی مجدد لازم است.` : ""}</p></div>
+  <div class="manual-orders"><h3>ورود دستی نوبت قرعه‌کشی فیزیکی</h3>${state.teams.map(team => `<div class="field"><label for="order-${team.id}">${escapeHtml(team.name)}</label><input id="order-${team.id}" data-order-team="${team.id}" type="number" min="1" max="${state.teams.length}" step="1" value="${latest?.entries.find(entry => entry.teamId === team.id)?.drawOrder ?? ""}"></div>`).join("")}</div><button class="btn success" id="save-manual-draw" ${state.teams.length < 2 || drawBusy || state.results.some(result => drawScope === "all" || result.disciplineId === drawScope) ? "disabled" : ""}>ثبت نوبت‌های دستی</button>
+  <button class="btn primary" id="run-draw" ${state.teams.length < 2 || drawBusy || state.results.some(result => drawScope === "all" || result.disciplineId === drawScope) ? "disabled" : ""}>${drawBusy ? "در حال ثبت قرعه‌کشی…" : latest ? "اجرای قرعه‌کشی مجدد" : "شروع قرعه‌کشی"}</button><p class="inline-status" id="draw-status" role="status">${state.teams.length < 2 ? "حداقل دو تیم لازم است." : missing ? `${missing.toLocaleString("fa-IR")} تیم پس از آخرین قرعه‌کشی اضافه شده است؛ برای حضور آن‌ها قرعه‌کشی مجدد لازم است.` : ""}</p></div>
   ${latest ? `<section class="card"><div class="section-actions"><div><h2>${escapeHtml(latest.title)}</h2><p class="draw-info">ثبت در ${new Date(latest.createdAt).toLocaleString("fa-IR")}</p></div><div class="actions"><button class="btn success" id="show-draw">نمایش قرعه‌کشی در سالن</button><button class="btn ghost" id="show-standings">بازگشت سالن به نتایج</button><button class="btn ghost" id="export-draw">دریافت PDF قرعه‌کشی</button></div></div>${drawTickets(latest)}</section>` : ""}
   ${draws.length > 1 ? `<details class="card draw-history"><summary>سوابق قرعه‌کشی این بخش (${draws.length - 1})</summary><ol>${draws.slice(1).map(d => `<li>${new Date(d.createdAt).toLocaleString("fa-IR")}<button class="btn ghost" data-export-draw="${d.id}">دریافت PDF این نوبت</button><p>${d.entries.map((e,i) => `${(i+1).toLocaleString("fa-IR")}. ${escapeHtml(e.name)}`).join(" · ")}</p></li>`).join("")}</ol></details>` : ""}`;
 }
 function drawTickets(draw) {
-  return `<div class="draw-grid">${draw.entries.map((team, index) => `<article class="draw-ticket"><strong>${(index+1).toLocaleString("fa-IR")}</strong><div><b>${escapeHtml(team.name)}</b><small>${escapeHtml(team.organization || team.code)}</small></div></article>`).join("")}</div>`;
+  return `<div class="draw-grid">${draw.entries.map((team, index) => `<article class="draw-ticket"><strong>${team.drawOrder.toLocaleString("fa-IR")}</strong><div><b>${escapeHtml(team.name)}</b><small>${escapeHtml(team.organization || team.code)}</small></div></article>`).join("")}</div>`;
 }
 function bindDraw() {
   document.querySelector("#draw-scope").addEventListener("change", event => { drawScope = event.target.value; render(); });
@@ -187,11 +225,21 @@ function bindDraw() {
     catch (error) { notify(error.message, true); }
     finally { drawBusy = false; render(); }
   });
+  document.querySelector("#save-manual-draw").addEventListener("click", async () => {
+    const previous = state.draws.find(draw => draw.disciplineId === drawScope);
+    if (drawBusy) return;
+    if (previous && !document.querySelector("#confirm-redraw")?.checked) { notify("ابتدا جایگزینی نوبت قبلی را تأیید کنید.", true); return; }
+    const entries = Array.from(document.querySelectorAll("[data-order-team]"), input => ({ teamId: Number(input.dataset.orderTeam), drawOrder: input.value }));
+    drawBusy = true;
+    try { state = await api.createDraw({ disciplineId: drawScope, method: "manual", entries, replaceDrawId: previous?.id }); notify("نوبت‌های دستی ذخیره شدند."); }
+    catch (error) { notify(error.message, true); }
+    finally { drawBusy = false; render(); }
+  });
   const latest = state.draws.find(d => d.disciplineId === drawScope);
   document.querySelector("#show-draw")?.addEventListener("click", async () => {
-    try { await api.setDisplay({ mode: "draw", drawId: latest.id }); await api.openDisplay(); notify("قرعه‌کشی روی نمایشگر سالن قرار گرفت."); } catch (error) { notify(error.message, true); }
+    try { await api.setDisplay({ mode: "draw", drawId: latest.id }); await openDisplay(); notify("قرعه‌کشی روی نمایشگر سالن قرار گرفت."); } catch (error) { notify(error.message, true); }
   });
-  document.querySelector("#show-standings")?.addEventListener("click", () => api.setDisplay({ mode: "standings" }));
+  document.querySelector("#show-standings")?.addEventListener("click", () => api.setDisplay({ mode: "standings" }).catch(error => notify(error.message, true)));
   document.querySelector("#export-draw")?.addEventListener("click", () => exportReport({ type: "draw", drawId: latest.id }));
   document.querySelectorAll("[data-export-draw]").forEach(b => b.addEventListener("click", () => exportReport({ type: "draw", drawId: b.dataset.exportDraw })));
 }

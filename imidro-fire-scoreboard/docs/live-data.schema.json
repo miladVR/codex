@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "IMIDRO live leaderboard projection",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "revision", "team_scores"],
+  "properties": {
+    "schema_version": { "const": 3 },
+    "revision": { "type": "integer", "minimum": 0 },
+    "team_scores": { "type": "array", "items": { "$ref": "#/$defs/teamScore" } }
+  },
+  "$defs": {
+    "nullableRank": { "type": ["integer", "null"], "minimum": 1 },
+    "nullableValue": { "type": ["number", "null"], "minimum": 0 },
+    "teamScore": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["team_id", "draw_order", "total_rank", "official_total_rank", "item_scores"],
+      "properties": {
+        "team_id": { "type": "integer", "minimum": 1 },
+        "draw_order": { "$ref": "#/$defs/nullableRank" },
+        "total_rank": { "$ref": "#/$defs/nullableRank", "description": "Provisional overall rank; null until all items have valid scores." },
+        "official_total_rank": { "$ref": "#/$defs/nullableRank", "description": "Approved-only overall rank; null until all items are approved." },
+        "item_scores": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["scientific", "combined", "water", "rescue_skill", "height"],
+          "properties": {
+            "scientific": { "$ref": "#/$defs/itemScore" },
+            "combined": { "$ref": "#/$defs/itemScore" },
+            "water": { "$ref": "#/$defs/itemScore" },
+            "rescue_skill": { "$ref": "#/$defs/itemScore" },
+            "height": { "$ref": "#/$defs/itemScore" }
+          }
+        }
+      }
+    },
+    "itemScore": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["draw_order", "rank", "final_value", "raw_primary_ms", "raw_secondary_ms", "penalty_ms", "scientific_duration_ms", "status", "unit"],
+      "properties": {
+        "draw_order": { "$ref": "#/$defs/nullableRank" },
+        "rank": { "$ref": "#/$defs/nullableRank" },
+        "final_value": { "$ref": "#/$defs/nullableValue" },
+        "raw_primary_ms": { "$ref": "#/$defs/nullableValue" },
+        "raw_secondary_ms": { "$ref": "#/$defs/nullableValue" },
+        "penalty_ms": { "$ref": "#/$defs/nullableValue" },
+        "scientific_duration_ms": { "$ref": "#/$defs/nullableValue" },
+        "status": { "enum": ["not_recorded", "draft", "approved"] },
+        "unit": { "enum": ["points", "ms"] }
+      }
+    }
+  }
+}

@@ -1,6 +1,6 @@
 {
   "name": "imidro-fire-scoreboard",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Offline Windows scoring system for IMIDRO firefighters competitions",
   "main": "main.cjs",
   "author": "Milad Rabiei",
@@ -9,6 +9,7 @@
   "scripts": {
     "start": "electron .",
     "test": "node --test",
+    "test:smoke": "electron scripts/smoke.cjs",
     "dist:win": "electron-builder --win nsis portable"
   },
   "devDependencies": {
@@ -24,6 +25,7 @@
     },
     "files": [
       "main.cjs",
+      "display-controller.cjs",
       "preload.cjs",
       "store.cjs",
       "scoring.cjs",
