@@ -24,6 +24,13 @@ async function waitFor(window, expression, timeout = 5000) {
   }
   throw new Error(`Timed out waiting for renderer: ${expression}`);
 }
+async function forceAnimationsEnabled(window) {
+  // CI runners report prefers-reduced-motion: reduce; the public display honors
+  // it by design, so rotation checks emulate "no preference" to test the real path.
+  const dbg = window.webContents.debugger;
+  if (!dbg.isAttached()) await dbg.attach();
+  await dbg.sendCommand("Emulation.setEmulatedMedia", { features: [{ name: "prefers-reduced-motion", value: "no-preference" }] });
+}
 app.whenReady().then(async () => {
   let admin, controller;
   const errors = [], checks = [], timings = [];
@@ -62,6 +69,8 @@ app.whenReady().then(async () => {
     let display = controller.window; captureErrors(display);
     console.log('Sizing display...');
     display.setSize(1280, 720); // content bounds are read below, not assumed.
+    await forceAnimationsEnabled(display);
+    assert.equal(await display.webContents.executeJavaScript("window.matchMedia('(prefers-reduced-motion: reduce)').matches"), false);
     console.log('Waiting for live rows...');
     await waitFor(display, "document.querySelectorAll('tbody tr').length > 0");
     console.log('Waiting for display fonts...');
@@ -104,10 +113,12 @@ app.whenReady().then(async () => {
     const before = controller.window;
     await ui("await window.scoreboardAPI.openDisplay({mode:'mirror'})"); assert.equal(controller.window, before);
     await display.webContents.reload();
+    await forceAnimationsEnabled(display);
     await waitFor(display, "document.querySelector('tbody tr')?.dataset.teamId === '2'");
     await ui("await window.scoreboardAPI.closeDisplay()"); assert.equal(controller.window, null);
     await ui("await window.scoreboardAPI.openDisplay({mode:'mirror'})");
     display = controller.window; captureErrors(display); display.setSize(1280, 720);
+    await forceAnimationsEnabled(display);
     await waitFor(display, "document.querySelector('tbody tr')?.dataset.teamId === '2'");
     check("repeated open reuses window; reload and close/reopen recover latest item state");
 
