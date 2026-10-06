@@ -54,6 +54,28 @@ app.whenReady().then(async () => {
     };
     await admin.loadFile(path.join(root, "src/index.html"));
     await waitFor(admin, "Boolean(document.querySelector('#leaderboard-scope'))");
+    const beforeHelp=store.view();
+    for(const view of ["dashboard","teams","draw","entry","approvals","settings","audit","guide"]){
+      await ui(`document.querySelector('[data-view=${view}]').click()`);
+      const uncovered=await admin.webContents.executeJavaScript("Array.from(document.querySelectorAll('#content button:not(.help-icon),#content input,#content select,#content textarea')).filter(n=>!n.dataset.helpAttached).map(n=>n.id||n.dataset.action||n.dataset.deleteKind)");
+      assert.deepEqual(uncovered,[],`Missing contextual help in ${view}`);
+      await ui("document.getElementById('view-help').click()");
+      await waitFor(admin,"Boolean(document.getElementById('context-help-dialog')?.open)");
+      await ui("document.getElementById('context-help-close').click()");
+    }
+    await ui("document.querySelector('[data-view=entry]').click()");
+    for(const discipline of beforeHelp.disciplines){
+      await ui(`const d=document.getElementById('discipline');d.value=${JSON.stringify(discipline.id)};d.dispatchEvent(new Event('change',{bubbles:true}))`);
+      const uncovered=await admin.webContents.executeJavaScript("Array.from(document.querySelectorAll('#content input,#content select,#content textarea,#content button:not(.help-icon)')).filter(n=>!n.dataset.helpAttached).map(n=>n.id)");
+      assert.deepEqual(uncovered,[],`Missing help in ${discipline.id} entry`);
+    }
+    await ui("const d=document.getElementById('discipline');d.value='water';d.dispatchEvent(new Event('change',{bubbles:true}));document.getElementById('primary-s').value='12';document.querySelector('[data-help-for=penalty]').click()");
+    assert.equal(await admin.webContents.executeJavaScript("document.getElementById('primary-s').value"),'12');
+    assert.ok((await admin.webContents.executeJavaScript("document.getElementById('context-help-dialog').textContent")).includes('ثانیه'));
+    await ui("document.getElementById('context-help-close').click()");
+    assert.equal(await admin.webContents.executeJavaScript("document.activeElement.dataset.helpFor"),'penalty');
+    assert.deepEqual(store.view(),beforeHelp);
+    check("contextual help covers all eight admin views and five discipline forms, preserves draft fields and never changes stored data");
     await ui("document.querySelector('[data-view=draw]').click()");
     await waitFor(admin, "Boolean(document.querySelector('#save-manual-draw'))");
     await ui("document.querySelectorAll('[data-order-team]').forEach(input => { input.value = 15 - Number(input.dataset.orderTeam); input.dispatchEvent(new Event('input',{bubbles:true})); }); document.querySelector('#save-manual-draw').click()");
@@ -83,7 +105,7 @@ app.whenReady().then(async () => {
     check("production open waits for loaded live table, local font/logo and viewport");
 
     await ui("document.querySelector('[data-view=dashboard]').click(); const select=document.querySelector('#leaderboard-scope');select.value='water';select.dispatchEvent(new Event('change',{bubbles:true}));document.querySelector('#publish-leaderboard').click()");
-    await waitFor(display, "document.querySelector('#table-title').textContent === 'آبرسانی' && document.querySelector('th:nth-child(3)').textContent === 'نوبت اجرا'");
+    await waitFor(display, "document.querySelector('#table-title').textContent === 'آبرسانی' && document.querySelector('th:nth-child(3) .help-column-label')?.textContent === 'نوبت اجرا' && Boolean(document.querySelector('th:nth-child(3) .help-icon'))");
 
     async function enterWater(teamId, seconds) {
       await ui(`document.querySelector('[data-view=entry]').click(); const discipline=document.querySelector('#discipline'); discipline.value='water'; discipline.dispatchEvent(new Event('change',{bubbles:true})); const team=document.querySelector('#team'); team.value='${teamId}'; team.dispatchEvent(new Event('change',{bubbles:true})); for(const [id,value] of [['primary-m','0'],['primary-s','${seconds}'],['primary-h','0']]){const input=document.getElementById(id);input.value=value;input.dispatchEvent(new Event('input',{bubbles:true}));} document.querySelector('#save-result').click()`);
@@ -168,6 +190,9 @@ app.whenReady().then(async () => {
     await ui("const t=document.getElementById('team');t.value='2';t.dispatchEvent(new Event('change',{bubbles:true}));document.getElementById('delete-round').click();document.getElementById('delete-next').click()");
     await waitFor(admin,"Boolean(document.getElementById('delete-confirmation'))");
     assert.equal(await admin.webContents.executeJavaScript("document.getElementById('delete-final').disabled"),true);
+    await ui("document.querySelector('[data-help-for=delete-final]').click()");
+    assert.equal(await admin.webContents.executeJavaScript("Boolean(document.getElementById('context-help-full'))"),false);
+    await ui("document.getElementById('context-help-close').click()");
     await ui("document.getElementById('delete-confirmation').value='تایید';document.getElementById('delete-confirmation').dispatchEvent(new Event('input',{bubbles:true}))");
     await waitFor(admin,"document.getElementById('delete-final').disabled===false",4000);
     fs.writeFileSync(path.join(out,'delete-confirmation.png'),(await admin.webContents.capturePage()).toPNG());
@@ -211,6 +236,40 @@ app.whenReady().then(async () => {
       assert.equal(fs.readFileSync(outputPath).subarray(0, 4).toString(), "%PDF");
     }
     check("official standings and manual draw export actual PDF files");
+    await ui("document.querySelector('[data-view=draw]').click()");
+    assert.equal(await admin.webContents.executeJavaScript("document.getElementById('run-draw').disabled"),true);
+    const beforeLockedHelp=store.view();
+    await ui("document.querySelector('[data-help-for=run-draw]').click()");
+    assert.ok((await admin.webContents.executeJavaScript("document.getElementById('context-help-dialog').textContent")).includes('قفل'));
+    admin.show();admin.focus();await delay(200);
+    fs.writeFileSync(path.join(out,"contextual-disabled-draw-help.png"),(await admin.webContents.capturePage()).toPNG());
+    admin.webContents.sendInputEvent({type:"keyDown",keyCode:"Escape"});
+    admin.webContents.sendInputEvent({type:"keyUp",keyCode:"Escape"});
+    await waitFor(admin,"!document.getElementById('context-help-dialog')");
+    assert.deepEqual(store.view(),beforeLockedHelp);
+    check("question icon remains clickable beside a disabled lottery button, explains its lock and closes with Escape");
+    await ui("document.querySelector('[data-view=guide]').click()");
+    assert.equal(await admin.webContents.executeJavaScript("document.querySelectorAll('.manual-section').length"),15);
+    await ui("const q=document.getElementById('guide-search');q.value='لاین';q.dispatchEvent(new Event('input',{bubbles:true}));q.focus();window.guideSearchBefore=q");
+    assert.ok(await admin.webContents.executeJavaScript("document.querySelectorAll('.manual-section').length>0 && document.querySelectorAll('.manual-section').length<15"));
+    await ui("await window.scoreboardAPI.updateSettings({displayMessage:'پیام بررسی حفظ راهنما'})");
+    await waitFor(admin,"document.getElementById('guide-search')===window.guideSearchBefore && document.getElementById('guide-search').value==='لاین'");
+    assert.equal(await admin.webContents.executeJavaScript("document.activeElement.id"),'guide-search');
+    await ui("document.querySelector('.manual-toc a').click()");
+    assert.ok(await admin.webContents.executeJavaScript("document.activeElement.classList.contains('manual-section')"));
+    admin.show();admin.focus();await delay(200);
+    fs.writeFileSync(path.join(out,"offline-full-guide.png"),(await admin.webContents.capturePage()).toPNG());
+    await ui("const q=document.getElementById('guide-search');q.value='عبارتناموجودآزمون';q.dispatchEvent(new Event('input',{bubbles:true}))");
+    assert.equal(await admin.webContents.executeJavaScript("document.querySelectorAll('.manual-section').length"),0);
+    await ui("document.getElementById('guide-clear').click()");
+    assert.equal(await admin.webContents.executeJavaScript("document.querySelectorAll('.manual-section').length"),15);
+    check("bundled full Persian guide supports text search, no-results, clear, section navigation and preserves reading during live state updates");
+    const beforePublicHelp=store.view();
+    await display.webContents.executeJavaScript("document.querySelector('[data-help-for=next-page]').click()");
+    await waitFor(display,"document.getElementById('context-help-dialog')?.open");
+    await display.webContents.executeJavaScript("document.getElementById('context-help-close').click()");
+    assert.deepEqual(store.view(),beforePublicHelp);
+    check("public display paging help opens and closes without changing competition data");
     admin.setContentSize(1100,720);
     await waitFor(admin,"innerHeight===720");
     const resetBounds=await admin.webContents.executeJavaScript("(()=>{const b=document.getElementById('reset-all').getBoundingClientRect();return {right:b.right,bottom:b.bottom,top:b.top,width:innerWidth,height:innerHeight};})()");
@@ -229,6 +288,9 @@ app.whenReady().then(async () => {
     await ui("document.getElementById('reset-all').click();document.getElementById('delete-next').click()");
     await waitFor(admin,"Boolean(document.getElementById('delete-confirmation'))");
     assert.equal(await admin.webContents.executeJavaScript("document.getElementById('delete-final').disabled"),true);
+    await ui("document.querySelector('[data-help-for=delete-final]').click()");
+    assert.equal(await admin.webContents.executeJavaScript("Boolean(document.getElementById('context-help-full'))"),false);
+    await ui("document.getElementById('context-help-close').click()");
     await ui("document.getElementById('delete-confirmation').value='تایید';document.getElementById('delete-confirmation').dispatchEvent(new Event('input',{bubbles:true}))");
     await waitFor(admin,"document.getElementById('delete-final').disabled===false",4000);
     fs.writeFileSync(path.join(out,"reset-confirmation.png"),(await admin.webContents.capturePage()).toPNG());
