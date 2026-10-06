@@ -40,7 +40,7 @@ function buildItemLeaderboard(state, discipline, { includeDrafts = false } = {})
     team,
     drawOrder: drawOrder(state, team.id, discipline.id),
     rank: ranked.get(team.id)?.rank ?? null,
-    result: ranked.get(team.id)?.result ?? null,
+    result: ranked.get(team.id)?.result ?? state.results.find(r => r.teamId===team.id && r.disciplineId===discipline.id && (r.status==="approved" || (includeDrafts && r.status==="draft"))) ?? null,
     finalValue: ranked.get(team.id)?.finalValue ?? null
   })).sort((a, b) => (a.rank ?? Infinity) - (b.rank ?? Infinity) ||
     (a.drawOrder ?? Infinity) - (b.drawOrder ?? Infinity) || a.team.id - b.team.id);

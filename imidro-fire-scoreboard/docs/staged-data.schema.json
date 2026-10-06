@@ -1,0 +1,240 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/miladVR/codex/imidro-staged-v4",
+  "title": "IMIDRO v4 canonical staged snapshot",
+  "type": "object",
+  "required": [
+    "version",
+    "teams",
+    "athletes",
+    "roundScores",
+    "settings",
+    "combinedStartOrder"
+  ],
+  "properties": {
+    "version": {
+      "const": 4
+    },
+    "teams": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Team"
+      }
+    },
+    "athletes": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Athlete"
+      }
+    },
+    "roundScores": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/RoundScore"
+      }
+    },
+    "settings": {
+      "$ref": "#/$defs/EventConfig"
+    },
+    "combinedStartOrder": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "integer",
+        "minimum": 1
+      }
+    }
+  },
+  "$defs": {
+    "Team": {
+      "type": "object",
+      "required": [
+        "id",
+        "name",
+        "code",
+        "organization"
+      ],
+      "properties": {
+        "id": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "code": {
+          "type": "string"
+        },
+        "organization": {
+          "type": "string",
+          "maxLength": 150
+        }
+      }
+    },
+    "Athlete": {
+      "type": "object",
+      "required": [
+        "id",
+        "teamId",
+        "round",
+        "name"
+      ],
+      "properties": {
+        "id": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "teamId": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "round": {
+          "enum": [
+            1,
+            2
+          ]
+        },
+        "name": {
+          "type": "string",
+          "maxLength": 100
+        }
+      }
+    },
+    "RoundScore": {
+      "type": "object",
+      "required": [
+        "id",
+        "athleteId",
+        "teamId",
+        "round",
+        "rawMs",
+        "penaltyMs",
+        "lane",
+        "heat",
+        "athleteNumber",
+        "drawOrder",
+        "judge",
+        "note",
+        "updatedAt"
+      ],
+      "properties": {
+        "id": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "athleteId": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "teamId": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "round": {
+          "enum": [
+            1,
+            2
+          ]
+        },
+        "rawMs": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 5999990
+        },
+        "penaltyMs": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 3600000
+        },
+        "lane": {
+          "enum": [
+            1,
+            2
+          ]
+        },
+        "heat": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "athleteNumber": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "drawOrder": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "judge": {
+          "type": "string"
+        },
+        "note": {
+          "type": "string"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "EventConfig": {
+      "type": "object",
+      "required": [
+        "competitionName",
+        "venue",
+        "eventDate",
+        "displayMessage",
+        "competitionLogo",
+        "sponsorLogos"
+      ],
+      "properties": {
+        "competitionName": {
+          "type": "string",
+          "maxLength": 180
+        },
+        "venue": {
+          "type": "string",
+          "maxLength": 180
+        },
+        "eventDate": {
+          "type": "string",
+          "maxLength": 80
+        },
+        "displayMessage": {
+          "type": "string",
+          "maxLength": 220
+        },
+        "competitionLogo": {
+          "type": "string"
+        },
+        "sponsorLogos": {
+          "type": "array",
+          "maxItems": 3,
+          "items": {
+            "type": "string"
+          }
+        },
+        "displayMode": {
+          "enum": [
+            "standings",
+            "item",
+            "individual",
+            "draw"
+          ]
+        },
+        "audioEnabled": {
+          "type": "boolean"
+        },
+        "audioVolume": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "autoRotate": {
+          "type": "boolean"
+        }
+      }
+    }
+  }
+}

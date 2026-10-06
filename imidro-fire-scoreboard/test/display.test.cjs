@@ -79,5 +79,6 @@ test("only admin mutates state and every successful mutation broadcasts to both 
   assert.equal(controller.window.sent.at(-1)[1].revision, 1);
   assert.throws(() => handlers.get("result:save")({ sender: controller.window.webContents }, {}), /مدیریت/);
   assert.deepEqual(handlers.get("state:get")({ sender: controller.window.webContents }), { revision: 1 });
+  for (const channel of ["round:save","delete:prepare","delete:confirm"]) assert.throws(()=>handlers.get(channel)({sender:controller.window.webContents},{}),/مدیریت/);
   assert.throws(() => handlers.get("state:get")({ sender: {} }), /نامعتبر/);
 });

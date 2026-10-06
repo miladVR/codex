@@ -10,22 +10,24 @@ function currentDraw() { return state.draws.find(draw => draw.id === state.setti
 function currentItem() { return state.disciplines.find(item => item.id === state.settings.displayItemId); }
 function isDraw() { return state.settings.displayMode === "draw" && Boolean(currentDraw()); }
 function isItem() { return state.settings.displayMode === "item" && Boolean(currentItem()); }
+function isIndividual() { return state.settings.displayMode==="individual"; }
 function activeRows(source = state) {
+  if (source.settings.displayMode==="individual") return source.individualLeaderboard;
   return source.settings.displayMode === "item" ? source.itemLeaderboards[source.settings.displayItemId] ?? [] : source.liveStandings;
 }
 function receive(next) {
   document.querySelector("#connection-status").textContent = "ارتباط محلی برقرار";
   if (state && next.revision <= state.revision) return;
   const modeChanged = state && ["displayMode", "displayDrawId", "displayItemId"].some(key => state.settings[key] !== next.settings[key]);
-  const changes = next.results.filter(result => resultKeys.get(result.id) !== resultKey(result));
-  const oldRanks = new Map(state ? activeRows(state).map(row => [row.team.id, isItem() ? row.rank : row.officialRank]) : []);
+  const changes = [...next.results.filter(result => resultKeys.get(result.id) !== resultKey(result)),...(state?.results ?? []).filter(result=>!next.results.some(r=>r.id===result.id))];
+  const oldRanks = new Map(state ? activeRows(state).map(row => [row.team.id, (isItem() || isIndividual()) ? row.rank : row.officialRank]) : []);
   state = next;
   resultKeys = new Map(next.results.map(result => [result.id, resultKey(result)]));
   if (modeChanged) { page = 0; capacity = 5; }
   const relevant = isItem() ? changes.filter(result => result.disciplineId === currentItem().id) : changes;
   if (initialized && relevant.length) {
     updatedTeams = new Set(relevant.map(result => result.teamId));
-    for (const row of activeRows()) if (oldRanks.has(row.team.id) && oldRanks.get(row.team.id) !== (isItem() ? row.rank : row.officialRank)) updatedTeams.add(row.team.id);
+    for (const row of activeRows()) if (oldRanks.has(row.team.id) && oldRanks.get(row.team.id) !== ((isItem() || isIndividual()) ? row.rank : row.officialRank)) updatedTeams.add(row.team.id);
     highlightUntil = Date.now() + 10000;
     if (!isDraw()) {
       const index = activeRows().findIndex(row => row.team.id === relevant.at(-1).teamId);
@@ -51,17 +53,20 @@ function render() {
   page = Math.min(page, pages() - 1);
   if (Date.now() > highlightUntil) updatedTeams.clear();
   document.body.classList.toggle("draw-mode", isDraw());
-  document.body.classList.toggle("item-mode", isItem());
+  document.body.classList.toggle("item-mode", isItem() || isIndividual());
   document.querySelector("#competition-name").textContent = state.settings.competitionName;
-  document.querySelector("#venue").textContent = state.settings.venue;
+  document.querySelector("#venue").textContent = [state.settings.venue,state.settings.eventDate].filter(Boolean).join(" · ");
+  document.querySelector(".competition-logo").src=state.settings.competitionLogo || "../assets/competition-logo.jpg";
+  const sponsors=document.querySelector("#sponsor-logos");sponsors.replaceChildren();
+  for (const src of state.settings.sponsorLogos.filter(Boolean)) { const img=document.createElement("img");img.src=src;img.alt="حامی مسابقه";sponsors.append(img); }
   document.querySelector("#display-message").textContent = state.settings.displayMessage;
   document.querySelector("#mode-label").textContent = isDraw() ? "نوبت اجرای ثابت — نه رتبه" : "نتایج زندهٔ موقت و تأییدشده";
   document.querySelector("#progress").textContent = isDraw() ? `${number(currentDraw().entries.length)} تیم` : `${number(state.results.filter(result => result.status === "draft").length)} نتیجه موقت`;
   document.querySelector("#page-info").textContent = `صفحه ${number(page + 1)} از ${number(pages())}`;
-  document.querySelector("#table-title").textContent = isDraw() ? currentDraw().title : isItem() ? currentItem().name : "رده‌بندی کل مسابقات — زنده";
+  document.querySelector("#table-title").textContent = isDraw() ? currentDraw().title : isIndividual() ? "عملیات ترکیبی — رده‌بندی انفرادی" : isItem() ? currentItem().name : "رده‌بندی کل مسابقات — زنده";
   document.querySelector("#table-subtitle").textContent = isDraw() ? "شماره آبی = نوبت حضور؛ رتبه نیست" : "نوبت اجرا: آبی ثابت | رتبه امتیازی: طلایی متغیر";
   renderPodium();
-  if (isDraw()) renderDraw(); else if (isItem()) renderItem(); else renderStandings();
+  if (isDraw()) renderDraw(); else if (isIndividual()) renderIndividual(); else if (isItem()) renderItem(); else renderStandings();
   document.querySelector("#pause-pages").textContent = rotationEnabled() ? "توقف گردش" : "ادامه گردش";
   document.querySelector("#pause-pages").disabled = pages() === 1 || state.settings.autoRotate === false || reducedMotion.matches;
   document.querySelector("#previous-page").disabled = pages() === 1;
@@ -84,6 +89,7 @@ function fitPage() {
   if (count !== capacity) { capacity = count; page = Math.min(page, pages() - 1); render(); }
 }
 function renderPodium() {
+  if (isItem() || isIndividual() || isDraw()) { document.querySelector("#podium").innerHTML=""; return; }
   const leaders = state.liveStandings.filter(row => row.officialRank !== null && row.officialRank <= 3).slice(0, 3);
   document.querySelector("#podium").innerHTML = leaders.length ? leaders.map(row => `<article class="podium-card ${row.officialRank === 1 ? "first" : ""}"><div class="medal">${number(row.officialRank)}</div><div><small>زنده — نیازمند تأیید نهایی</small><b>${escapeHtml(row.team.name)}</b></div><div class="score"><small>مجموع رتبه</small><strong>${number(row.total)}</strong></div></article>`).join("") : '<article class="podium-card first"><div class="medal">—</div><div><b>در انتظار تکمیل پنج رشته</b></div></article>';
 }
@@ -104,8 +110,12 @@ function renderItem() {
   document.querySelector("#standings").innerHTML = `<table class="item-table"><thead><tr><th>رتبه امتیازی</th><th>تیم</th><th>نوبت اجرا</th><th>${item.mode === "score" ? "زمان پاسخ" : "رکورد خام"}</th><th>جریمه</th><th>${item.mode === "score" ? "نمره نهایی" : "زمان نهایی"}</th><th>وضعیت</th></tr></thead><tbody>${rows.map(row => {
     const result = row.result;
     const raw = !result ? "—" : item.mode === "score" ? formatTime(result.scientificDurationMs) : item.mode === "pair_time" ? `${formatTime(result.rawPrimaryMs)} / ${formatTime(result.rawSecondaryMs)}` : formatTime(result.rawPrimaryMs);
-    return `<tr data-team-id="${row.team.id}" class="${updatedTeams.has(row.team.id) ? "updated" : ""}"><td>${rankBadge(row.rank)}</td><td class="team">${escapeHtml(row.team.name)}</td><td>${turnBadge(row.drawOrder)}</td><td class="record">${raw}</td><td>${result && item.mode !== "score" ? number(result.penaltyMs / 1000) + " ثانیه" : "—"}</td><td class="total record">${item.mode === "score" ? number(row.finalValue) : formatTime(row.finalValue)}</td><td><span class="result-status ${result?.status === "approved" ? "approved" : "draft"}">${!result ? "ثبت نشده" : result.status === "approved" ? "تأییدشده" : "موقت"}</span></td></tr>`;
+    return `<tr data-team-id="${row.team.id}" class="${updatedTeams.has(row.team.id) ? "updated" : ""}"><td>${rankBadge(row.rank)}</td><td class="team">${escapeHtml(row.team.name)}</td><td>${turnBadge(row.drawOrder)}</td><td class="record">${raw}</td><td>${result && item.mode !== "score" ? number(result.penaltyMs / 1000) + " ثانیه" : "—"}</td><td class="total record">${item.mode === "score" ? number(row.finalValue) : formatTime(row.finalValue)}</td><td><span class="result-status ${result?.status === "approved" ? "approved" : "draft"}">${result?.completionStatus==="Partial" ? "در حال تکمیل" : !result ? "ثبت نشده" : result.status === "approved" ? "تأییدشده" : "موقت"}</span></td></tr>`;
   }).join("")}</tbody></table>${rows.length ? "" : '<div class="empty">هنوز تیمی ثبت نشده است.</div>'}`;
+}
+function renderIndividual() {
+  const rows=activeRows().slice(page*capacity,(page+1)*capacity);
+  document.querySelector("#standings").innerHTML=`<table class="item-table"><thead><tr><th>رتبه</th><th>ورزشکار / تیم</th><th>شماره</th><th>دور / گروه / لاین</th><th>زمان خام</th><th>جریمه</th><th>زمان نهایی</th></tr></thead><tbody>${rows.map(row=>`<tr data-team-id="${row.team.id}" data-athlete-id="${row.athlete.id}" class="${updatedTeams.has(row.team.id) ? "updated" : ""}"><td>${rankBadge(row.rank)}</td><td class="team">${escapeHtml(row.athlete.name || `ورزشکار دور ${row.athlete.round}`)}<small>${escapeHtml(row.team.name)}</small></td><td>${turnBadge(row.athleteNumber)}</td><td>${number(row.athlete.round)} / ${number(row.heat)} / ${number(row.lane)}</td><td class="record">${formatTime(row.result?.rawMs)}</td><td>${row.result ? number(row.result.penaltyMs/1000) : "—"}</td><td class="total record">${formatTime(row.finalValue)}</td></tr>`).join("")}</tbody></table>`;
 }
 function renderDraw() {
   document.querySelector("#standings").innerHTML = `<div class="draw-grid">${currentDraw().entries.slice(page * capacity, (page + 1) * capacity).map(entry => `<article class="draw-ticket"><strong class="turn">${number(entry.drawOrder)}</strong><div><small>نوبت اجرا — نه رتبه</small><b>${escapeHtml(entry.name)}</b><small>${escapeHtml(entry.organization || entry.code)}</small></div></article>`).join("")}</div>`;
