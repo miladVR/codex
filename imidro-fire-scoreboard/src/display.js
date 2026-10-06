@@ -18,6 +18,7 @@ function activeRows(source = state) {
 function receive(next) {
   document.querySelector("#connection-status").textContent = "ارتباط محلی برقرار";
   if (state && next.revision <= state.revision) return;
+  if(state && next.resetId!==state.resetId) {page=0;capacity=5;paused=false;highlightUntil=0;updatedTeams.clear();resultKeys.clear();initialized=false;document.getElementById("announcement").textContent="";}
   const modeChanged = state && ["displayMode", "displayDrawId", "displayItemId"].some(key => state.settings[key] !== next.settings[key]);
   const changes = [...next.results.filter(result => resultKeys.get(result.id) !== resultKey(result)),...(state?.results ?? []).filter(result=>!next.results.some(r=>r.id===result.id))];
   const oldRanks = new Map(state ? activeRows(state).map(row => [row.team.id, (isItem() || isIndividual()) ? row.rank : row.officialRank]) : []);

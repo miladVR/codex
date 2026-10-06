@@ -14,8 +14,10 @@ const titles = { dashboard: "تابلوی نتایج", entry: "ثبت نتیجه
 document.querySelectorAll(".nav-item").forEach((button) => button.addEventListener("click", () => setView(button.dataset.view)));
 document.querySelector("#display-btn").addEventListener("click", () => openDisplay().catch(error => notify(`خطای نمایشگر: ${error.message}`, true)));
 document.querySelector("#backup-btn").addEventListener("click", async () => { const result = await api.backup(); if (!result.canceled) notify("نسخه پشتیبان ذخیره شد."); });
+document.getElementById("reset-all").addEventListener("click",()=>deleteSafely("reset"));
 function receive(next) {
   if (state && next.revision < state.revision) return;
+  if(state && next.resetId!==state.resetId) {selectedTeam="";selectedDiscipline="scientific";selectedRound=1;drawScope="all";leaderboardScope="all";drawBusy=false;currentView="dashboard";document.querySelectorAll(".nav-item").forEach(item=>item.classList.toggle("active",item.dataset.view==="dashboard"));}
   const draft=currentView==="entry" && !entryBusy ? Array.from(document.querySelectorAll("#content input,#content select,#content textarea"),input=>[input.id,input.value]) : null;
   state=next;render();
   if (draft) { for (const [id,saved] of draft) { const input=document.getElementById(id);if(input) input.value=saved; } updatePreview(); }
@@ -333,8 +335,10 @@ async function deleteSafely(kind,id) {
   if (document.getElementById("delete-dialog")) return;
   const dialog=document.createElement("dialog");dialog.id="delete-dialog";dialog.className="delete-dialog";
   dialog.innerHTML='<h2>تأیید اول: آغاز حذف</h2><p>این عملیات داده‌های انتخاب‌شده را پاک می‌کند. در مرحله بعد، خلاصه دقیق را بررسی کنید.</p><div class="actions"><button id="delete-cancel" class="btn ghost">انصراف</button><button id="delete-next" class="btn danger">بررسی مرحله دوم</button></div>';
+  if(kind==="reset") {dialog.querySelector("h2").textContent="تأیید اول: پاک‌کردن کل نرم‌افزار";dialog.querySelector("p").textContent="آیا می‌خواهید همه داده‌های مسابقه، تنظیمات سفارشی و پشتیبان‌های خودکار داخلی پاک شوند و برنامه مثل روز اول شود؟ این کار قابل برگشت نیست. در صورت نیاز، ابتدا از دکمه نسخه پشتیبان استفاده کنید.";}
+  const focus=document.activeElement;
   document.body.append(dialog);dialog.showModal();
-  const focus=document.activeElement;let timer;
+  let timer;
   function close(){clearTimeout(timer);dialog.close();dialog.remove();focus?.focus();}
   dialog.addEventListener("cancel",e=>{e.preventDefault();close();});dialog.querySelector("#delete-cancel").onclick=close;
   dialog.querySelector("#delete-next").onclick=async()=>{
@@ -346,7 +350,7 @@ async function deleteSafely(kind,id) {
       const input=dialog.querySelector("#delete-confirmation"),button=dialog.querySelector("#delete-final");let ready=false;
       const enable=()=>button.disabled=!ready || input.value!=="تایید";
       timer=setTimeout(()=>{ready=true;enable();},review.waitMs);input.oninput=enable;input.focus();dialog.querySelector("#delete-cancel").onclick=close;
-      button.onclick=async()=>{button.disabled=true;entryBusy=true;try{await api.confirmDeletion({token:review.token,confirmation:input.value});close();notify("حذف ثبت شد؛ رتبه‌ها دوباره محاسبه شدند.");}catch(error){dialog.querySelector("#delete-error").textContent=error.message;}finally{entryBusy=false;render();}};
+      button.onclick=async()=>{button.disabled=true;entryBusy=true;try{await api.confirmDeletion({token:review.token,confirmation:input.value});close();notify(kind==="reset" ? "همه داده‌ها پاک شدند؛ برنامه آماده شروع از صفر است." : "حذف ثبت شد؛ رتبه‌ها دوباره محاسبه شدند.");}catch(error){dialog.querySelector("#delete-error").textContent=error.message;}finally{entryBusy=false;render();}};
     } catch(error){notify(error.message,true);close();}
   };
 }
