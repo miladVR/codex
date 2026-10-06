@@ -211,6 +211,12 @@ app.whenReady().then(async () => {
       assert.equal(fs.readFileSync(outputPath).subarray(0, 4).toString(), "%PDF");
     }
     check("official standings and manual draw export actual PDF files");
+    admin.setContentSize(1100,720);
+    await waitFor(admin,"innerHeight===720");
+    const resetBounds=await admin.webContents.executeJavaScript("(()=>{const b=document.getElementById('reset-all').getBoundingClientRect();return {right:b.right,bottom:b.bottom,top:b.top,width:innerWidth,height:innerHeight};})()");
+    assert.ok(resetBounds.right>resetBounds.width-280 && resetBounds.bottom<=resetBounds.height && resetBounds.top>resetBounds.height/2);
+    admin.setContentSize(1480,920);
+    await waitFor(admin,"innerHeight===920");
     await assert.rejects(display.webContents.executeJavaScript("window.scoreboardAPI.prepareDeletion({kind:'reset'})"),/مدیریت/);
     const beforeReset=store.view();
     await ui("document.getElementById('reset-all').click();document.getElementById('delete-cancel').click()");

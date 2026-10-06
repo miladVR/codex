@@ -273,6 +273,7 @@ class CompetitionStore {
     fresh.resetId=randomUUID();
     const tempPath=`${this.dataPath}.tmp`;
     // Move automatic backups out of service before committing the empty snapshot.
+    fs.rmSync(this.resetBackupPath,{recursive:true,force:true,maxRetries:3,retryDelay:100});
     fs.renameSync(this.backupPath,this.resetBackupPath);
     try {
       fs.mkdirSync(this.backupPath);
@@ -338,6 +339,7 @@ class CompetitionStore {
   }
 
   updateSettings(payload) {
+    if (payload.expectedRevision != null && payload.expectedRevision !== this.state.revision) throw new Error("داده تغییر کرده است؛ تنظیمات را دوباره بررسی کنید.");
     const competitionLogo=payload.competitionLogo===undefined ? this.state.settings.competitionLogo : validateLogo(payload.competitionLogo);
     const sponsorLogos=payload.sponsorLogos===undefined ? this.state.settings.sponsorLogos : payload.sponsorLogos;
     if (!Array.isArray(sponsorLogos) || sponsorLogos.length>3) throw new Error("حداکثر سه لوگوی حامی مجاز است.");

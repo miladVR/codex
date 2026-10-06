@@ -202,7 +202,7 @@ async function imageFile(input) {
 async function saveSettings() {
   const button=document.querySelector("#save-settings");button.disabled=true;
   try {
-    const payload={competitionName:value("competition-name"),venue:value("competition-venue"),eventDate:value("event-date"),displayMessage:value("display-message"),
+    const payload={expectedRevision:state.revision,competitionName:value("competition-name"),venue:value("competition-venue"),eventDate:value("event-date"),displayMessage:value("display-message"),
       audioEnabled:document.querySelector("#audio-enabled").checked,audioVolume:Number(value("audio-volume")),autoRotate:document.querySelector("#auto-rotate").checked};
     const logoInput=document.querySelector("#competition-logo-file"),resetLogo=document.querySelector("#reset-competition-logo").checked;
     const sponsorInputs=[0,1,2].map(i=>({input:document.getElementById(`sponsor-${i}`),reset:document.getElementById(`reset-sponsor-${i}`).checked,old:state.settings.sponsorLogos[i] || ""}));
