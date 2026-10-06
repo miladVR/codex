@@ -20,6 +20,9 @@ class CompetitionStore {
   constructor(userDataPath) {
     this.dataPath = path.join(userDataPath, "competition-data.json");
     this.backupPath = path.join(userDataPath, "backups");
+    this.resetBackupPath = path.join(userDataPath, "reset-backups");
+    // Finish removal after an interrupted reset; these backups must never resurface.
+    fs.rmSync(this.resetBackupPath, { recursive: true, force: true, maxRetries: 3, retryDelay: 100 });
     fs.mkdirSync(this.backupPath, { recursive: true });
     this.deletionChallenges = new Map();
     this.state = this.#read();
@@ -199,8 +202,10 @@ class CompetitionStore {
   }
 
   prepareDeletion(payload) {
-    const kind=payload.kind, id=integer(payload.id); let summary;
-    if (kind==="team") {
+    const kind=payload.kind, id=kind==="reset" ? null : integer(payload.id); let summary;
+    if (kind==="reset") {
+      summary=`پاک‌سازی کامل و غیرقابل برگشت: ${this.state.teams.length} تیم، ${this.state.athletes.length} ورزشکار، ${this.state.results.length} نتیجه، ${this.state.roundScores.length} رکورد دور، ${this.state.draws.length} قرعه و ${this.state.audits.length} سابقه؛ همه زمان‌ها و جریمه‌ها، لوگوهای سفارشی و پشتیبان‌های خودکار داخلی پاک می‌شوند. عنوان، تاریخ، محل، پیام و صدا به تنظیمات اولیه برمی‌گردند. فایل‌های PDF و پشتیبان‌هایی که خودتان بیرون از برنامه ذخیره کرده‌اید پاک نمی‌شوند.`;
+    } else if (kind==="team") {
       const team=this.state.teams.find(t=>t.id===id); if (!team) throw new Error("تیم پیدا نشد.");
       summary=`تیم ${team.name}؛ دو ورزشکار و ${this.state.results.filter(r=>r.teamId===id).length} نتیجه و تمام رکوردهای انفرادی آن حذف می‌شوند.`;
     } else if (kind==="result") {
@@ -233,6 +238,7 @@ class CompetitionStore {
     this.deletionChallenges.delete(payload.token);
     if (challenge.revision!==this.state.revision) throw new Error("داده از زمان بررسی تغییر کرده است؛ حذف را دوباره بررسی کنید.");
     const {kind,id}=challenge;
+    if (kind==="reset") return this.#resetAll();
     if (kind==="team") {
       this.state.teams=this.state.teams.filter(t=>t.id!==id);
       this.state.athletes=this.state.athletes.filter(a=>a.teamId!==id);
@@ -258,6 +264,31 @@ class CompetitionStore {
     }
     this.#audit("delete_"+kind,challenge.summary);
     this.#persist(); return this.view();
+  }
+
+  #resetAll() {
+    const previous=this.state;
+    const fresh=this.#initialState();
+    fresh.revision=previous.revision+1; // Keep IPC ordering monotonic across the reset.
+    fresh.resetId=randomUUID();
+    const tempPath=`${this.dataPath}.tmp`;
+    // Move automatic backups out of service before committing the empty snapshot.
+    fs.rmSync(this.resetBackupPath,{recursive:true,force:true,maxRetries:3,retryDelay:100});
+    fs.renameSync(this.backupPath,this.resetBackupPath);
+    try {
+      fs.mkdirSync(this.backupPath);
+      fs.writeFileSync(tempPath,JSON.stringify(fresh,null,2),"utf8");
+      fs.renameSync(tempPath,this.dataPath);
+    } catch(error) {
+      fs.rmSync(tempPath,{force:true});
+      fs.rmSync(this.backupPath,{recursive:true,force:true});
+      fs.renameSync(this.resetBackupPath,this.backupPath);
+      throw error;
+    }
+    this.state=fresh;
+    this.deletionChallenges.clear();
+    fs.rmSync(this.resetBackupPath,{recursive:true,force:true,maxRetries:3,retryDelay:100});
+    return this.view();
   }
 
   createDraw(payload = {}) {
@@ -308,6 +339,7 @@ class CompetitionStore {
   }
 
   updateSettings(payload) {
+    if (payload.expectedRevision != null && payload.expectedRevision !== this.state.revision) throw new Error("داده تغییر کرده است؛ تنظیمات را دوباره بررسی کنید.");
     const competitionLogo=payload.competitionLogo===undefined ? this.state.settings.competitionLogo : validateLogo(payload.competitionLogo);
     const sponsorLogos=payload.sponsorLogos===undefined ? this.state.settings.sponsorLogos : payload.sponsorLogos;
     if (!Array.isArray(sponsorLogos) || sponsorLogos.length>3) throw new Error("حداکثر سه لوگوی حامی مجاز است.");
@@ -363,7 +395,15 @@ class CompetitionStore {
       return parsed;
     } catch (error) {
       if (error.code !== "ENOENT") throw new Error("فایل داده خوانده نشد؛ برای حفظ اطلاعات از نسخه پشتیبان استفاده کنید.", { cause: error });
-      const initial = {
+      const initial = this.#initialState();
+      this.state = initial;
+      this.#persist();
+      return initial;
+    }
+  }
+
+  #initialState() {
+    return {
         version: 4,
         revision: 0,
         organizationCredit: ORGANIZATION,
@@ -384,10 +424,6 @@ class CompetitionStore {
         nextResultId: 1,
         nextAuditId: 1
       };
-      this.state = initial;
-      this.#persist();
-      return initial;
-    }
   }
 
   #persist() {
