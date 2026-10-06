@@ -242,6 +242,8 @@ app.whenReady().then(async () => {
     assert.deepEqual(new CompetitionStore(path.join(temporary,"competition")).view(),empty);
     admin.reload();
     await waitFor(admin,"document.querySelector('.metric b')?.textContent==='0'");
+    admin.show();admin.focus();await delay(250);
+    await admin.webContents.executeJavaScript("new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))");
     fs.writeFileSync(path.join(out,"reset-empty-dashboard.png"),(await admin.webContents.capturePage()).toPNG());
     await ui("await window.scoreboardAPI.addTeam({name:'تیم واقعی تازه'})");
     await waitFor(display,"document.querySelector('tr[data-team-id]')?.dataset.teamId==='1'");
