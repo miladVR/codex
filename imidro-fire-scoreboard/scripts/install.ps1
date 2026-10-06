@@ -1,3 +1,5 @@
+param([string]$Version = "")
+
 $ErrorActionPreference = "Stop"
 $ProgressPreference = "SilentlyContinue"
 
@@ -52,12 +54,12 @@ Write-Host "Finding the latest IMIDRO Fire Scoreboard release..." -ForegroundCol
 $headers = @{ "User-Agent" = "IMIDRO-Fire-Scoreboard-Installer" }
 $releases = Invoke-RestMethod -UseBasicParsing -Headers $headers -Uri "https://api.github.com/repos/miladVR/codex/releases?per_page=100" -TimeoutSec 60
 $release = $releases |
-    Where-Object { -not $_.draft -and -not $_.prerelease -and $_.tag_name -like "imidro-fire-v*" } |
+    Where-Object { -not $_.draft -and -not $_.prerelease -and $_.tag_name -like "imidro-fire-v*" -and (-not $Version -or $_.tag_name -eq "imidro-fire-v$Version") } |
     Sort-Object published_at -Descending |
     Select-Object -First 1
 
 if (-not $release) {
-    throw "No published IMIDRO Fire Scoreboard release was found."
+    throw "No matching published IMIDRO Fire Scoreboard release was found. Requested version: $Version"
 }
 
 $asset = $release.assets |
@@ -78,6 +80,15 @@ $downloadedFile = Get-Item -LiteralPath $installerPath -ErrorAction Stop
 if ($downloadedFile.Length -ne [int64]$asset.size) {
     Remove-PartialInstaller -Path $installerPath
     throw "The downloaded file is incomplete. Expected $($asset.size) bytes but received $($downloadedFile.Length) bytes."
+}
+
+if ($asset.digest -and $asset.digest -like "sha256:*") {
+    $expectedHash = $asset.digest.Substring(7)
+    $actualHash = (Get-FileHash -LiteralPath $installerPath -Algorithm SHA256).Hash
+    if ($actualHash -ne $expectedHash) {
+        Remove-PartialInstaller -Path $installerPath
+        throw "Installer SHA-256 does not match the published asset."
+    }
 }
 
 Write-Host "Download completed successfully." -ForegroundColor Green

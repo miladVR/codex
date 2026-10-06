@@ -14,7 +14,7 @@ const out = path.join(root, "release", "qa");
 app.setPath("userData", path.join(temporary, "electron-profile"));
 app.commandLine.appendSwitch("autoplay-policy", "no-user-gesture-required");
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
-const watchdog = setTimeout(() => { console.error('Native smoke exceeded its 90s bound.'); app.exit(1); }, 90000);
+const watchdog = setTimeout(() => { console.error('Native smoke exceeded its 120s bound.'); app.exit(1); }, 120000);
 async function waitFor(window, expression, timeout = 5000) {
   const until = Date.now() + timeout;
   while (Date.now() < until) {
@@ -140,9 +140,55 @@ app.whenReady().then(async () => {
     await waitFor(display, "document.querySelectorAll('.draw-ticket').length > 0");
     fs.writeFileSync(path.join(out, "draw.png"), (await display.webContents.capturePage()).toPNG());
     check("draw screen labels turn numbers rather than score ranks");
+    // Full two-round operational acceptance: 22 teams, 44 athlete slots.
+    for (let i=15;i<=22;i++) await ui(`await window.scoreboardAPI.addTeam({name:'تیم آزمایشی ${i}',athletePrimary:'ورزشکار اول ${i}',athleteSecondary:'ورزشکار دوم ${i}'})`);
+    await ui("await window.scoreboardAPI.setDisplay({mode:'individual'});document.querySelector('[data-view=entry]').click();const d=document.getElementById('discipline');d.value='combined';d.dispatchEvent(new Event('change',{bubbles:true}));const t=document.getElementById('team');t.value='1';t.dispatchEvent(new Event('change',{bubbles:true}));document.getElementById('athlete-primary').value='ورزشکار اول ۱';for(const [id,v] of [['primary-m','0'],['primary-s','30'],['primary-h','0']])document.getElementById(id).value=v;document.getElementById('save-result').click()");
+    await waitFor(admin,"document.querySelector('#toast').textContent.includes('رتبه انفرادی')");
+    assert.equal(store.view().combinedTeams.find(t=>t.teamId===1).status,'Partial');
+    assert.equal(store.view().results.find(r=>r.teamId===1 && r.disciplineId==='combined').rawSecondaryMs,null);
+    await waitFor(display,"document.querySelector('#table-title').textContent.includes('انفرادی') && document.querySelector('tbody tr').dataset.teamId==='1'");
+    await waitFor(admin,"document.querySelector('#save-result').disabled===false");
+    fs.writeFileSync(path.join(out,'staged-round-1.png'),(await admin.webContents.capturePage()).toPNG());
+    for(let id=2;id<=22;id++) await ui(`await window.scoreboardAPI.saveRoundScore({teamId:${id},round:1,rawMs:${70000-id*1000},penaltyMs:0})`);
+    assert.equal(store.view().roundScores.length,22);
+    assert.ok(store.view().itemLeaderboards.combined.every(row=>row.rank===null));
+    check('22 first-round scores save independently, 44 individual slots, no premature team ranks');
+    await ui("const t=document.getElementById('team');t.value='1';t.dispatchEvent(new Event('change',{bubbles:true}));const r=document.getElementById('combined-round');r.value='2';r.dispatchEvent(new Event('change',{bubbles:true}));");
+    const slot=store.view().combinedTeams.find(t=>t.teamId===1).rounds[1];
+    assert.equal(slot.athleteNumber,36);assert.equal(slot.lane,1); // reverse manual order puts team 1 at slot 14.
+    assert.ok((await admin.webContents.executeJavaScript("document.getElementById('lane-assignment').textContent")).includes('لاین 1'));
+    await ui("for(const [id,v] of [['primary-m','0'],['primary-s','50'],['primary-h','0']])document.getElementById(id).value=v;document.getElementById('penalty').value='10';document.getElementById('save-result').click()");
+    await waitFor(admin,"document.querySelector('#toast').textContent.includes('رتبه تیمی: 1')");
+    assert.equal(store.view().itemLeaderboards.combined.find(r=>r.team.id===1).finalValue,45000);
+    await ui("await window.scoreboardAPI.setDisplay({mode:'item',disciplineId:'combined'});await window.scoreboardAPI.saveRoundScore({teamId:2,round:2,rawMs:10000})");
+    await waitFor(display,"document.querySelector('tbody tr').dataset.teamId==='2' && document.querySelector('tbody tr.updated')");
+    check('round 2 auto-swaps lane, uses athlete number after 22 and immediately reorders team average');
+    fs.writeFileSync(path.join(out,'combined-team-live.png'),(await display.webContents.capturePage()).toPNG());
+    await ui("const t=document.getElementById('team');t.value='2';t.dispatchEvent(new Event('change',{bubbles:true}));document.getElementById('delete-round').click();document.getElementById('delete-next').click()");
+    await waitFor(admin,"Boolean(document.getElementById('delete-confirmation'))");
+    assert.equal(await admin.webContents.executeJavaScript("document.getElementById('delete-final').disabled"),true);
+    await ui("document.getElementById('delete-confirmation').value='تایید';document.getElementById('delete-confirmation').dispatchEvent(new Event('input',{bubbles:true}))");
+    await waitFor(admin,"document.getElementById('delete-final').disabled===false",4000);
+    fs.writeFileSync(path.join(out,'delete-confirmation.png'),(await admin.webContents.capturePage()).toPNG());
+    await ui("document.getElementById('delete-final').click()");
+    await waitFor(admin,"!document.getElementById('delete-dialog')");
+    assert.equal(store.view().combinedTeams.find(t=>t.teamId===2).status,'Partial');
+    check('two real modal steps enforce typed confirmation and delay; deleting a round restores partial state');
+    const testLogo='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jZ2kAAAAASUVORK5CYII=';
+    await ui(`document.querySelector('[data-view=settings]').click();document.getElementById('event-date').value='۱۴۰۵/۰۷/۱۵';const bytes=Uint8Array.from(atob(${JSON.stringify(testLogo.split(',')[1])}),c=>c.charCodeAt(0));const dt=new DataTransfer();dt.items.add(new File([bytes],'logo.png',{type:'image/png'}));document.getElementById('competition-logo-file').files=dt.files;document.getElementById('sponsor-0').files=dt.files;document.getElementById('save-settings').click()`);
+    await waitFor(admin,"document.getElementById('toast').textContent.includes('لوگوها ذخیره')");
+    assert.equal(store.view().settings.competitionLogo,testLogo);
+    await waitFor(display,"document.querySelector('.competition-logo').src.startsWith('data:image/png') && document.querySelector('#sponsor-logos img')?.naturalWidth===1");
+    assert.ok((await display.webContents.executeJavaScript("document.getElementById('venue').textContent")).includes('۱۴۰۵/۰۷/۱۵'));
+    check('actual raster upload saves event date and updates event/sponsor logos on public display');
+    await ui("await window.scoreboardAPI.updateSettings({competitionLogo:'',sponsorLogos:[]})");
     for (const discipline of store.view().disciplines) {
       if (discipline.id !== "water") {
-        for (const teamId of [1, 2]) await ui(`await window.scoreboardAPI.saveResult({teamId:${teamId},disciplineId:${JSON.stringify(discipline.id)},rawPrimaryMs:${teamId === 1 ? 50000 : 40000},rawSecondaryMs:60000,penaltyMs:1000,scientificScore:${teamId === 1 ? 80 : 95}})`);
+        for (const teamId of [1, 2]) {
+          if (discipline.id==='combined') {
+            await ui(`await window.scoreboardAPI.saveRoundScore({teamId:${teamId},round:1,rawMs:${teamId===1?50000:40000},penaltyMs:0});await window.scoreboardAPI.saveRoundScore({teamId:${teamId},round:2,rawMs:60000,penaltyMs:${teamId===1?10000:0}})`);
+          } else await ui(`await window.scoreboardAPI.saveResult({teamId:${teamId},disciplineId:${JSON.stringify(discipline.id)},rawPrimaryMs:${teamId === 1 ? 50000 : 40000},rawSecondaryMs:60000,penaltyMs:1000,scientificScore:${teamId === 1 ? 80 : 95}})`);
+        }
       }
       await ui(`await window.scoreboardAPI.setDisplay({mode:'item',disciplineId:${JSON.stringify(discipline.id)}})`);
       await waitFor(display, `document.querySelector('#table-title').textContent === ${JSON.stringify(discipline.name)} && document.querySelector('tbody tr').dataset.teamId === '2'`);
@@ -166,7 +212,7 @@ app.whenReady().then(async () => {
     check("official standings and manual draw export actual PDF files");
     assert.deepEqual(errors, []);
     fs.writeFileSync(path.join(out, "smoke-result.json"), JSON.stringify({ passed: true, bounds, checks, timings }, null, 2));
-    fs.writeFileSync(path.join(out, "live-data-example.json"), JSON.stringify({ schema_version: 3, revision: store.view().revision, team_scores: store.view().team_scores }, null, 2));
+    fs.writeFileSync(path.join(out, "live-data-example.json"), JSON.stringify({ schema_version: 4, revision: store.view().revision, team_scores: store.view().team_scores }, null, 2));
     console.log("Native Electron smoke passed: production IPC, admin forms, manual turns, live sorting, lifecycle, paging and PDF exports.");
     clearTimeout(watchdog); controller.close(); admin.destroy(); fs.rmSync(path.join(temporary, "competition"), { recursive: true, force: true }); app.exit(0);
   } catch (error) {

@@ -3,6 +3,9 @@
 const { contextBridge, ipcRenderer } = require("electron");
 
 contextBridge.exposeInMainWorld("scoreboardAPI", {
+  saveRoundScore:payload => ipcRenderer.invoke("round:save",payload),
+  prepareDeletion:payload => ipcRenderer.invoke("delete:prepare",payload),
+  confirmDeletion:payload => ipcRenderer.invoke("delete:confirm",payload),
   getState: () => ipcRenderer.invoke("state:get"),
   createDraw: (payload) => ipcRenderer.invoke("draw:create", payload),
   setDisplay: (payload) => ipcRenderer.invoke("display:set", payload),
