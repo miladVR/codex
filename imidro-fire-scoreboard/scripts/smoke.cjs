@@ -105,7 +105,7 @@ app.whenReady().then(async () => {
     check("production open waits for loaded live table, local font/logo and viewport");
 
     await ui("document.querySelector('[data-view=dashboard]').click(); const select=document.querySelector('#leaderboard-scope');select.value='water';select.dispatchEvent(new Event('change',{bubbles:true}));document.querySelector('#publish-leaderboard').click()");
-    await waitFor(display, "document.querySelector('#table-title').textContent === 'آبرسانی' && document.querySelector('th:nth-child(3)').textContent === 'نوبت اجرا'");
+    await waitFor(display, "document.querySelector('#table-title').textContent === 'آبرسانی' && document.querySelector('th:nth-child(3) .help-column-label')?.textContent === 'نوبت اجرا' && Boolean(document.querySelector('th:nth-child(3) .help-icon'))");
 
     async function enterWater(teamId, seconds) {
       await ui(`document.querySelector('[data-view=entry]').click(); const discipline=document.querySelector('#discipline'); discipline.value='water'; discipline.dispatchEvent(new Event('change',{bubbles:true})); const team=document.querySelector('#team'); team.value='${teamId}'; team.dispatchEvent(new Event('change',{bubbles:true})); for(const [id,value] of [['primary-m','0'],['primary-s','${seconds}'],['primary-h','0']]){const input=document.getElementById(id);input.value=value;input.dispatchEvent(new Event('input',{bubbles:true}));} document.querySelector('#save-result').click()`);
