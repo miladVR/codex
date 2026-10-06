@@ -50,24 +50,28 @@ function Download-Installer {
     }
 }
 
-Write-Host "Finding the latest IMIDRO Fire Scoreboard release..." -ForegroundColor Cyan
-$headers = @{ "User-Agent" = "IMIDRO-Fire-Scoreboard-Installer" }
-$releases = Invoke-RestMethod -UseBasicParsing -Headers $headers -Uri "https://api.github.com/repos/miladVR/codex/releases?per_page=100" -TimeoutSec 60
-$release = $releases |
-    Where-Object { -not $_.draft -and -not $_.prerelease -and $_.tag_name -like "imidro-fire-v*" -and (-not $Version -or $_.tag_name -eq "imidro-fire-v$Version") } |
-    Sort-Object published_at -Descending |
-    Select-Object -First 1
-
-if (-not $release) {
-    throw "No matching published IMIDRO Fire Scoreboard release was found. Requested version: $Version"
+# Resolve only published, verified installers from a small public file.
+# raw.githubusercontent.com is not subject to GitHub REST API rate limits.
+if ($Version -and $Version -notmatch '^\d+\.\d+\.\d+$') {
+    throw "Version must be in X.Y.Z format."
 }
-
-$asset = $release.assets |
-    Where-Object { $_.name -like "IMIDRO-Fire-Scoreboard-*-x64-setup.exe" } |
-    Select-Object -First 1
-
-if (-not $asset) {
-    throw "The Windows setup file is missing from release $($release.tag_name)."
+Write-Host "Finding the published IMIDRO installer (no GitHub API required)..." -ForegroundColor Cyan
+$headers = @{ "User-Agent" = "IMIDRO-Fire-Scoreboard-Installer" }
+$manifest = Invoke-RestMethod -UseBasicParsing -Headers $headers -Uri "https://raw.githubusercontent.com/miladVR/codex/main/imidro-fire-scoreboard/scripts/releases.json" -TimeoutSec 60
+if (-not $Version) { $Version = [string]$manifest.latest }
+if ($Version -notmatch '^\d+\.\d+\.\d+$') { throw "The published installer version is invalid." }
+$entry = $manifest.releases.PSObject.Properties[$Version]
+if (-not $entry) { throw "Published installer metadata was not found for version $Version. Download it from the GitHub Release page." }
+$metadata = $entry.Value
+if ([int64]$metadata.size -le 0 -or [string]$metadata.sha256 -notmatch '^[a-fA-F0-9]{64}$') {
+    throw "The installer verification metadata is invalid."
+}
+$release = [pscustomobject]@{ tag_name = "imidro-fire-v$Version" }
+$asset = [pscustomobject]@{
+    name = "IMIDRO-Fire-Scoreboard-$Version-x64-setup.exe"
+    browser_download_url = "https://github.com/miladVR/codex/releases/download/imidro-fire-v$Version/IMIDRO-Fire-Scoreboard-$Version-x64-setup.exe"
+    size = [int64]$metadata.size
+    digest = "sha256:$($metadata.sha256)"
 }
 
 $installerPath = Join-Path $env:TEMP "IMIDRO-Fire-Scoreboard-Setup.exe"

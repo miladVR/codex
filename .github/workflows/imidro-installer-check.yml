@@ -1,0 +1,22 @@
+name: IMIDRO installer verification
+on:
+  push:
+    paths:
+      - 'imidro-fire-scoreboard/scripts/install.ps1'
+      - 'imidro-fire-scoreboard/scripts/releases.json'
+      - 'imidro-fire-scoreboard/scripts/test-install.ps1'
+      - '.github/workflows/imidro-installer-check.yml'
+  pull_request:
+    paths:
+      - 'imidro-fire-scoreboard/scripts/**'
+      - '.github/workflows/imidro-installer-check.yml'
+permissions:
+  contents: read
+jobs:
+  installer-tests:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test Windows PowerShell 5.1 installer without network or installation
+        shell: powershell
+        run: '& ./imidro-fire-scoreboard/scripts/test-install.ps1'
