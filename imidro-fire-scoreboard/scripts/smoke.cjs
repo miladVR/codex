@@ -148,6 +148,7 @@ app.whenReady().then(async () => {
     assert.equal(store.view().results.find(r=>r.teamId===1 && r.disciplineId==='combined').rawSecondaryMs,null);
     await waitFor(display,"document.querySelector('#table-title').textContent.includes('انفرادی') && document.querySelector('tbody tr').dataset.teamId==='1'");
     await waitFor(admin,"document.querySelector('#save-result').disabled===false");
+    admin.show(); await delay(250);
     fs.writeFileSync(path.join(out,'staged-round-1.png'),(await admin.webContents.capturePage()).toPNG());
     for(let id=2;id<=22;id++) await ui(`await window.scoreboardAPI.saveRoundScore({teamId:${id},round:1,rawMs:${70000-id*1000},penaltyMs:0})`);
     assert.equal(store.view().roundScores.length,22);
