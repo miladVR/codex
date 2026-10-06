@@ -1,5 +1,8 @@
 "use strict";
 const api = window.scoreboardAPI;
+const help=window.scoreboardHelp;
+help.install({getContext:()=>({state,pageCount:state?pages():1,reducedMotion:reducedMotion.matches})});help.decorate(document.querySelector(".page-controls"));
+help.attach(document.getElementById("table-title"),"dashboard","table-title");
 let state, page = 0, capacity = 5, paused = false, highlightUntil = 0;
 let updatedTeams = new Set(), resultKeys = new Map(), initialized = false;
 const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -72,6 +75,9 @@ function render() {
   document.querySelector("#pause-pages").disabled = pages() === 1 || state.settings.autoRotate === false || reducedMotion.matches;
   document.querySelector("#previous-page").disabled = pages() === 1;
   document.querySelector("#next-page").disabled = pages() === 1;
+  const titleHelp=document.querySelector('[data-help-for="table-title"]');
+  titleHelp.onclick=()=>help.showTopic(isDraw()?"draw":isIndividual()?"combined":isItem()?(currentItem().mode==="score"?"scientific":"time"):"ranks",titleHelp);
+  help.decorate(document.getElementById("standings"));
   requestAnimationFrame(fitPage);
 }
 function fitPage() {
@@ -121,7 +127,7 @@ function renderIndividual() {
 function renderDraw() {
   document.querySelector("#standings").innerHTML = `<div class="draw-grid">${currentDraw().entries.slice(page * capacity, (page + 1) * capacity).map(entry => `<article class="draw-ticket"><strong class="turn">${number(entry.drawOrder)}</strong><div><small>نوبت اجرا — نه رتبه</small><b>${escapeHtml(entry.name)}</b><small>${escapeHtml(entry.organization || entry.code)}</small></div></article>`).join("")}</div>`;
 }
-function rotationEnabled() { return !paused && state.settings.autoRotate !== false && !reducedMotion.matches; }
+function rotationEnabled() { return !document.getElementById("context-help-dialog") && !paused && state.settings.autoRotate !== false && !reducedMotion.matches; }
 document.querySelector("#next-page").addEventListener("click", () => { if (state) { page = (page + 1) % pages(); render(); } });
 document.querySelector("#previous-page").addEventListener("click", () => { if (state) { page = (page - 1 + pages()) % pages(); render(); } });
 document.querySelector("#pause-pages").addEventListener("click", () => { paused = !paused; render(); });

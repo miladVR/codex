@@ -1,6 +1,7 @@
 "use strict";
 
 const api = window.scoreboardAPI;
+const help = window.scoreboardHelp;
 let state;
 let currentView = "dashboard";
 let drawScope = "all";
@@ -9,8 +10,11 @@ let displayStatus;
 let leaderboardScope = "all";
 let selectedRound=1, entryBusy=false;
 let selectedTeam = "", selectedDiscipline = "scientific";
-const titles = { dashboard: "تابلوی نتایج", entry: "ثبت نتیجه", approvals: "تأیید سرداور", teams: "تیم‌ها", settings: "تنظیمات و نمایشگر", draw: "قرعه‌کشی تیم‌ها", audit: "سوابق تغییرات" };
+const titles = { dashboard: "تابلوی نتایج", entry: "ثبت نتیجه", approvals: "تأیید سرداور", teams: "تیم‌ها", settings: "تنظیمات و نمایشگر", draw: "قرعه‌کشی تیم‌ها", audit: "سوابق تغییرات", guide: "راهنمای نرم‌افزار" };
 
+help.install({getContext:source=>({state,drawScope,drawBusy,teamId:selectedTeam || document.getElementById("team")?.value,disciplineId:selectedDiscipline,slot:state?.combinedTeams.find(t=>t.teamId===Number(document.getElementById("team")?.value))?.rounds[selectedRound-1],result:state?.results.find(r=>r.id===Number(source?.dataset.id))}),openGuide:()=>setView("guide")});
+document.getElementById("view-help").onclick=()=>help.showTopic(currentView,document.getElementById("view-help"));
+help.decorate(document.querySelector(".sidebar"));help.decorate(document.querySelector("header"));
 document.querySelectorAll(".nav-item").forEach((button) => button.addEventListener("click", () => setView(button.dataset.view)));
 document.querySelector("#display-btn").addEventListener("click", () => openDisplay().catch(error => notify(`خطای نمایشگر: ${error.message}`, true)));
 document.querySelector("#backup-btn").addEventListener("click", async () => { const result = await api.backup(); if (!result.canceled) notify("نسخه پشتیبان ذخیره شد."); });
@@ -40,7 +44,8 @@ function render() {
   document.querySelector(".admin-logo").src=state.settings.competitionLogo || "../assets/competition-logo.jpg";
   const drafts = state.results.filter((result) => result.status === "draft").length;
   document.querySelector("#draft-badge").textContent = drafts || "";
-  const views = { dashboard: dashboardView, entry: entryView, approvals: approvalsView, teams: teamsView, settings: settingsView, draw: drawView, audit: auditView };
+  if(currentView==="guide" && document.getElementById("full-guide")) return;
+  const views = { dashboard: dashboardView, entry: entryView, approvals: approvalsView, teams: teamsView, settings: settingsView, draw: drawView, audit: auditView, guide:()=>'<div id="full-guide"></div>' };
   document.querySelector("#content").innerHTML = views[currentView]();
   document.querySelectorAll(".field").forEach(field => {
     const label = field.querySelector("label"); const input = field.querySelector("input,select,textarea");
@@ -48,6 +53,7 @@ function render() {
   });
   document.querySelectorAll(".time-part").forEach(part => part.querySelector("label").htmlFor = part.querySelector("select").id);
   bindCurrentView();
+  help.decorate(document.getElementById("content"));
 }
 
 function dashboardView() {
@@ -94,6 +100,7 @@ function auditView() {
 }
 
 function bindCurrentView() {
+  if(currentView==="guide")window.scoreboardManual.render(document.getElementById("full-guide"));
   document.querySelectorAll("[data-delete-kind]").forEach(button=>button.addEventListener("click",()=>deleteSafely(button.dataset.deleteKind,Number(button.dataset.deleteId))));
   if (currentView === "dashboard") {
     document.querySelector("#export-standings").addEventListener("click", () => exportReport({ type: "standings" }));
@@ -153,6 +160,7 @@ function renderResultFields() {
   container.querySelectorAll(".time-part").forEach(part => part.querySelector("label").htmlFor = part.querySelector("select").id);
   container.querySelectorAll("select,input").forEach((field) => field.addEventListener("input", updatePreview));
   updatePreview();
+  help.decorate(document.getElementById("content"));
 }
 
 function timePicker(prefix) {
@@ -235,14 +243,15 @@ function itemTable() {
   return `<div class="table-wrap"><table><thead><tr><th>رتبه امتیازی</th><th>نوبت اجرا</th><th>تیم</th><th>رکورد نهایی / نمره</th><th>وضعیت</th></tr></thead><tbody>${state.itemLeaderboards[leaderboardScope].map(row => `<tr><td>${row.rank ?? "—"}</td><td><span class="turn">${row.drawOrder ?? "—"}</span></td><td>${escapeHtml(row.team.name)}</td><td>${discipline.mode === "score" ? row.finalValue ?? "—" : formatTime(row.finalValue)}</td><td>${row.result?.completionStatus==="Partial" ? "در حال تکمیل" : !row.result ? "ثبت نشده" : row.result.status === "approved" ? "تأییدشده" : "موقت"}</td></tr>`).join("")}</tbody></table></div>`;
 }
 function drawView() {
+  const availability=help.drawAvailability(state,drawScope,drawBusy);
   const draws = state.draws.filter(d => d.disciplineId === drawScope);
   const latest = draws[0];
   const missing = latest ? state.teams.filter(t => !latest.entries.some(e => e.teamId === t.id)).length : 0;
   return `<div class="card hero"><h2>قرعه‌کشی ترتیب حضور تیم‌ها</h2><p>هر تیم دقیقاً یک نوبت می‌گیرد. نتیجه ذخیره می‌شود و روی امتیاز مسابقه اثری ندارد.</p></div>
   <div class="card"><div class="form-grid"><div class="field"><label for="draw-scope">محدوده قرعه‌کشی</label><select id="draw-scope"><option value="all">ترتیب عمومی تیم‌ها</option>${state.disciplines.map(d => `<option value="${d.id}" ${drawScope === d.id ? "selected" : ""}>${escapeHtml(d.name)}</option>`).join("")}</select></div><div class="draw-info">${state.teams.length.toLocaleString("fa-IR")} تیم حاضر<br>پیش از قرعه‌کشی، فهرست تیم‌ها را کامل کنید. پس از ثبت اولین نتیجهٔ این محدوده، نوبت‌ها ثابت و غیرقابل‌تغییر هستند.</div></div>
   ${latest ? `<label class="draw-confirm"><input type="checkbox" id="confirm-redraw"> قرعه‌کشی مجدد این رشته را تأیید می‌کنم؛ نوبت قبلی در سوابق باقی بماند.</label>` : ""}
-  <div class="manual-orders"><h3>ورود دستی نوبت قرعه‌کشی فیزیکی</h3>${state.teams.map(team => `<div class="field"><label for="order-${team.id}">${escapeHtml(team.name)}</label><input id="order-${team.id}" data-order-team="${team.id}" type="number" min="1" max="${state.teams.length}" step="1" value="${latest?.entries.find(entry => entry.teamId === team.id)?.drawOrder ?? ""}"></div>`).join("")}</div><button class="btn success" id="save-manual-draw" ${state.teams.length < 2 || drawBusy || state.results.some(result => drawScope === "all" || result.disciplineId === drawScope) ? "disabled" : ""}>ثبت نوبت‌های دستی</button>
-  <button class="btn primary" id="run-draw" ${state.teams.length < 2 || drawBusy || state.results.some(result => drawScope === "all" || result.disciplineId === drawScope) ? "disabled" : ""}>${drawBusy ? "در حال ثبت قرعه‌کشی…" : latest ? "اجرای قرعه‌کشی مجدد" : "شروع قرعه‌کشی"}</button><p class="inline-status" id="draw-status" role="status">${state.teams.length < 2 ? "حداقل دو تیم لازم است." : missing ? `${missing.toLocaleString("fa-IR")} تیم پس از آخرین قرعه‌کشی اضافه شده است؛ برای حضور آن‌ها قرعه‌کشی مجدد لازم است.` : ""}</p></div>
+  <div class="manual-orders"><h3>ورود دستی نوبت قرعه‌کشی فیزیکی</h3>${state.teams.map(team => `<div class="field"><label for="order-${team.id}">${escapeHtml(team.name)}</label><input id="order-${team.id}" data-order-team="${team.id}" type="number" min="1" max="${state.teams.length}" step="1" value="${latest?.entries.find(entry => entry.teamId === team.id)?.drawOrder ?? ""}"></div>`).join("")}</div><button class="btn success" id="save-manual-draw" ${!availability.allowed ? "disabled" : ""}>ثبت نوبت‌های دستی</button>
+  <button class="btn primary" id="run-draw" ${!availability.allowed ? "disabled" : ""}>${drawBusy ? "در حال ثبت قرعه‌کشی…" : latest ? "اجرای قرعه‌کشی مجدد" : "شروع قرعه‌کشی"}</button><p class="inline-status" id="draw-status" role="status">${!availability.allowed ? escapeHtml(availability.reason) : missing ? `${missing.toLocaleString("fa-IR")} تیم پس از آخرین قرعه‌کشی اضافه شده است؛ برای حضور آن‌ها قرعه‌کشی مجدد لازم است.` : ""}</p></div>
   ${latest ? `<section class="card"><div class="section-actions"><div><h2>${escapeHtml(latest.title)}</h2><p class="draw-info">ثبت در ${new Date(latest.createdAt).toLocaleString("fa-IR")}</p></div><div class="actions"><button class="btn success" id="show-draw">نمایش قرعه‌کشی در سالن</button><button class="btn ghost" id="show-standings">بازگشت سالن به نتایج</button><button class="btn ghost" id="export-draw">دریافت PDF قرعه‌کشی</button></div></div>${drawTickets(latest)}</section>` : ""}
   ${draws.length > 1 ? `<details class="card draw-history"><summary>سوابق قرعه‌کشی این بخش (${draws.length - 1})</summary><ol>${draws.slice(1).map(d => `<li>${new Date(d.createdAt).toLocaleString("fa-IR")}<button class="btn ghost" data-export-draw="${d.id}">دریافت PDF این نوبت</button><p>${d.entries.map((e,i) => `${(i+1).toLocaleString("fa-IR")}. ${escapeHtml(e.name)}`).join(" · ")}</p></li>`).join("")}</ol></details>` : ""}`;
 }
@@ -311,6 +320,8 @@ function renderCombinedFields() {
   save.disabled=entryBusy || result?.status==="approved" || !slot.lane;
   document.getElementById("team").disabled=entryBusy; document.getElementById("discipline").disabled=entryBusy;
   updateCombinedPreview();
+  help.decorate(document.getElementById("content"));
+  help.attach(document.getElementById("lane-assignment"),"lane","lane-assignment");
 }
 function updateCombinedPreview() {
   const raw=readTime("primary"), penalty=Number(value("penalty"))*1000;
@@ -337,7 +348,7 @@ async function deleteSafely(kind,id) {
   dialog.innerHTML='<h2>تأیید اول: آغاز حذف</h2><p>این عملیات داده‌های انتخاب‌شده را پاک می‌کند. در مرحله بعد، خلاصه دقیق را بررسی کنید.</p><div class="actions"><button id="delete-cancel" class="btn ghost">انصراف</button><button id="delete-next" class="btn danger">بررسی مرحله دوم</button></div>';
   if(kind==="reset") {dialog.querySelector("h2").textContent="تأیید اول: پاک‌کردن کل نرم‌افزار";dialog.querySelector("p").textContent="آیا می‌خواهید همه داده‌های مسابقه، تنظیمات سفارشی و پشتیبان‌های خودکار داخلی پاک شوند و برنامه مثل روز اول شود؟ این کار قابل برگشت نیست. در صورت نیاز، ابتدا از دکمه نسخه پشتیبان استفاده کنید.";}
   const focus=document.activeElement;
-  document.body.append(dialog);dialog.showModal();
+  document.body.append(dialog);help.decorate(dialog);dialog.showModal();
   let timer;
   function close(){clearTimeout(timer);dialog.close();dialog.remove();focus?.focus();}
   dialog.addEventListener("cancel",e=>{e.preventDefault();close();});dialog.querySelector("#delete-cancel").onclick=close;
@@ -347,6 +358,7 @@ async function deleteSafely(kind,id) {
       const review=await api.prepareDeletion({kind,id});
       dialog.innerHTML='<h2>تأیید دوم: حذف نهایی</h2><p id="delete-summary"></p><p>پس از دو ثانیه، کلمه «تایید» را وارد کنید.</p><label for="delete-confirmation">کلمه تأیید</label><input id="delete-confirmation" autocomplete="off"><p id="delete-error" role="status"></p><div class="actions"><button id="delete-cancel" class="btn ghost">انصراف</button><button id="delete-final" class="btn danger" disabled>حذف نهایی</button></div>';
       dialog.querySelector("#delete-summary").textContent=review.summary;
+      help.decorate(dialog);
       const input=dialog.querySelector("#delete-confirmation"),button=dialog.querySelector("#delete-final");let ready=false;
       const enable=()=>button.disabled=!ready || input.value!=="تایید";
       timer=setTimeout(()=>{ready=true;enable();},review.waitMs);input.oninput=enable;input.focus();dialog.querySelector("#delete-cancel").onclick=close;
