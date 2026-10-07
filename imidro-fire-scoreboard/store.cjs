@@ -340,6 +340,7 @@ class CompetitionStore {
 
   updateSettings(payload) {
     if (payload.expectedRevision != null && payload.expectedRevision !== this.state.revision) throw new Error("داده تغییر کرده است؛ تنظیمات را دوباره بررسی کنید.");
+    if(payload.displayLayout!==undefined && !["paged","all"].includes(payload.displayLayout)) throw new Error("چیدمان نمایشگر معتبر نیست.");
     const competitionLogo=payload.competitionLogo===undefined ? this.state.settings.competitionLogo : validateLogo(payload.competitionLogo);
     const sponsorLogos=payload.sponsorLogos===undefined ? this.state.settings.sponsorLogos : payload.sponsorLogos;
     if (!Array.isArray(sponsorLogos) || sponsorLogos.length>3) throw new Error("حداکثر سه لوگوی حامی مجاز است.");
@@ -351,6 +352,7 @@ class CompetitionStore {
       venue: payload.venue===undefined ? this.state.settings.venue : clean(payload.venue,180),
       audioEnabled: payload.audioEnabled === undefined ? this.state.settings.audioEnabled : Boolean(payload.audioEnabled),
       audioVolume: boundedNumber(payload.audioVolume ?? this.state.settings.audioVolume ?? 45, 0, 100, "بلندی صدا"),
+      displayLayout: payload.displayLayout ?? this.state.settings.displayLayout,
       autoRotate: payload.autoRotate === undefined ? this.state.settings.autoRotate : Boolean(payload.autoRotate),
       displayMessage: payload.displayMessage===undefined ? this.state.settings.displayMessage : clean(payload.displayMessage,220)
     };
@@ -386,9 +388,10 @@ class CompetitionStore {
       parsed.draws = parsed.draws.map(draw => ({ ...draw, method: draw.method ?? "auto",
         entries: draw.entries.map((entry, index) => ({ ...entry, drawOrder: entry.drawOrder ?? index + 1 })) }));
       parsed.revision ??= 0;
-      parsed.settings = { eventDate:"", competitionLogo:"", sponsorLogos:[], audioVolume: 45, autoRotate: true, displayMode: "standings", displayDrawId: null, displayItemId: null, ...parsed.settings };
+      parsed.settings = { eventDate:"", competitionLogo:"", sponsorLogos:[], audioVolume: 45, autoRotate: true, displayLayout: "paged", displayMode: "standings", displayDrawId: null, displayItemId: null, ...parsed.settings };
       if (parsed.settings.displayMessage === "نتایج رسمی پس از تأیید سرداور نمایش داده می‌شوند.")
         parsed.settings.displayMessage = "نتایج زنده تا تأیید سرداور موقت هستند؛ نوبت اجرا با رتبه متفاوت است.";
+      if(!["paged","all"].includes(parsed.settings.displayLayout)) parsed.settings.displayLayout="paged";
       migrateCombined(parsed);
       parsed.version = 4;
       parsed.organizationCredit = ORGANIZATION;
@@ -413,7 +416,7 @@ class CompetitionStore {
           competitionName: "سومین دوره مسابقات علمی و عملیاتی آتش‌نشانان ایمیدرو",
           venue: "مجتمع مس سرچشمه رفسنجان · ۱۴۰۵",
           audioEnabled: true,
-          audioVolume: 45, autoRotate: true, displayMode: "standings", displayDrawId: null, displayItemId: null,
+          audioVolume: 45, autoRotate: true, displayLayout: "paged", displayMode: "standings", displayDrawId: null, displayItemId: null,
           displayMessage: "نتایج زنده تا تأیید سرداور موقت هستند؛ نوبت اجرا با رتبه متفاوت است."
         },
         disciplines: DEFAULT_DISCIPLINES,
