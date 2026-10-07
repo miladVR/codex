@@ -9,3 +9,5 @@ main{height:100vh;min-height:0;padding:10px 1.6vw;display:grid;grid-template-row
 @media(max-width:900px){.clock{display:none}.brand h1{font-size:22px}.brand #venue{font-size:14px}.competition-logo{width:52px;height:52px}.meta{font-size:14px;gap:8px}#connection-status{display:none}.section-title span{display:none}.result-tables th{font-size:13px}.result-tables.two-tables{gap:7px}.two-tables th{font-size:11px}.two-tables .record{font-size:10px}.draw-ticket b{font-size:18px}}
 
 .pair-record{display:flex;flex-direction:column;font-size:.78em;line-height:1.1}
+/* Keep help buttons independent without consuming another header line. */
+.two-tables th{position:relative;font-size:12px;line-height:1;padding:3px 2px;padding-inline-end:18px}.two-tables th .help-column-label{display:block}.two-tables th .help-icon{position:absolute;inset-inline-end:1px;top:3px;width:16px;min-width:16px;height:16px;min-height:16px;font-size:12px}
