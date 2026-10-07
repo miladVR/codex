@@ -107,16 +107,19 @@ app.whenReady().then(async () => {
     await ui("document.querySelector('[data-view=dashboard]').click(); const select=document.querySelector('#leaderboard-scope');select.value='water';select.dispatchEvent(new Event('change',{bubbles:true}));document.querySelector('#publish-leaderboard').click()");
     await waitFor(display, "document.querySelector('#table-title').textContent === 'آبرسانی' && document.querySelector('th:nth-child(3) .help-column-label')?.textContent === 'نوبت اجرا' && Boolean(document.querySelector('th:nth-child(3) .help-icon'))");
 
-    async function enterWater(teamId, seconds) {
-      await ui(`document.querySelector('[data-view=entry]').click(); const discipline=document.querySelector('#discipline'); discipline.value='water'; discipline.dispatchEvent(new Event('change',{bubbles:true})); const team=document.querySelector('#team'); team.value='${teamId}'; team.dispatchEvent(new Event('change',{bubbles:true})); for(const [id,value] of [['primary-m','0'],['primary-s','${seconds}'],['primary-h','0']]){const input=document.getElementById(id);input.value=value;input.dispatchEvent(new Event('input',{bubbles:true}));} document.querySelector('#save-result').click()`);
-      await waitFor(admin, `document.querySelector('#primary-s').value === '${seconds}' && document.querySelector('#toast').textContent.includes('فوراً')`);
+    async function enterWater(teamId, seconds, hundredths=0) {
+      await ui(`document.querySelector('[data-view=entry]').click(); const discipline=document.querySelector('#discipline'); discipline.value='water'; discipline.dispatchEvent(new Event('change',{bubbles:true})); const team=document.querySelector('#team'); team.value='${teamId}'; team.dispatchEvent(new Event('change',{bubbles:true})); for(const [id,value] of [['primary-m','${Math.floor(seconds/60)}'],['primary-s','${seconds%60}'],['primary-h','${hundredths}']]){const input=document.getElementById(id);input.value=value;input.dispatchEvent(new Event('input',{bubbles:true}));} document.querySelector('#save-result').click()`);
+      await waitFor(admin, `document.querySelector('#primary-s').value === '${seconds%60}' && document.querySelector('#toast').textContent.includes('فوراً')`);
     }
-    await enterWater(1, 30);
+    await enterWater(1,64,50);
+    await waitFor(display,"document.querySelector('tbody tr .total').textContent === '01:04.50'");
+    assert.equal(await admin.webContents.executeJavaScript("document.getElementById('preview').textContent"),"01:04.50");
+    check("real time input of 1 minute, 4 seconds and 50 hundredths displays 01:04.50 in both admin and hall");
     await waitFor(display, "document.querySelector('tbody tr').dataset.teamId === '1' && document.querySelector('tbody tr .draft').textContent === 'موقت'");
     await enterWater(2, 40);
     const start = Date.now();
     await enterWater(2, 20);
-    await waitFor(display, "document.querySelector('tbody tr').dataset.teamId === '2' && document.querySelector('tbody tr .total').textContent === '00:20.000'");
+    await waitFor(display, "document.querySelector('tbody tr').dataset.teamId === '2' && document.querySelector('tbody tr .total').textContent === '00:20.00'");
     timings.push({ name: "water draft edit to rendered rank", ms: Date.now() - start, teams: 14 });
     const itemSnapshot = await display.webContents.executeJavaScript("({first:document.querySelector('tbody tr').dataset.teamId,turn:document.querySelector('tbody tr .turn').textContent,changed:document.querySelectorAll('tr.updated').length,notice:document.querySelector('#announcement').textContent})");
     assert.equal(itemSnapshot.first, "2"); assert.equal(itemSnapshot.turn, (13).toLocaleString("fa-IR")); assert.ok(itemSnapshot.changed >= 2);
@@ -162,8 +165,51 @@ app.whenReady().then(async () => {
     await waitFor(display, "document.querySelectorAll('.draw-ticket').length > 0");
     fs.writeFileSync(path.join(out, "draw.png"), (await display.webContents.capturePage()).toPNG());
     check("draw screen labels turn numbers rather than score ranks");
+    async function assertTableFit(expectedRows,expectedTables,expectedPages){
+      await waitFor(display,`document.querySelectorAll('tbody tr').length===${expectedRows} && document.querySelectorAll('#standings table').length===${expectedTables}`);
+      await display.webContents.executeJavaScript("document.fonts.ready.then(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))))");
+      const fit=await display.webContents.executeJavaScript(`(()=>{const area=document.getElementById('standings').getBoundingClientRect();const rows=Array.from(document.querySelectorAll('tbody tr'));return {pages:document.getElementById('page-info').textContent,bottom:Math.max(...rows.map(r=>r.getBoundingClientRect().bottom)),areaBottom:area.bottom,footer:document.querySelector('footer').getBoundingClientRect().bottom,height:innerHeight,width:document.documentElement.scrollWidth,viewport:innerWidth,ids:rows.map(r=>r.dataset.athleteId||r.dataset.teamId),badges:Array.from(document.querySelectorAll('tbody .slot-badge')).every(b=>b.getBoundingClientRect().width<=b.closest('td').getBoundingClientRect().width+1)}})()`);
+      assert.ok(fit.pages.includes(`از ${expectedPages.toLocaleString('fa-IR')}`),JSON.stringify(fit));
+      assert.ok(fit.bottom<=fit.areaBottom+2,JSON.stringify(fit));assert.ok(fit.footer<=fit.height+2,JSON.stringify(fit));assert.ok(fit.width<=fit.viewport+2,JSON.stringify(fit));assert.ok(fit.badges,JSON.stringify(fit));assert.equal(new Set(fit.ids).size,expectedRows);
+      return fit;
+    }
+    // Regression for the reported ten-team case: all ten fit on a single page.
+    const smallStore=new CompetitionStore(path.join(temporary,'ten-team-layout'));
+    for(let id=1;id<=10;id++)smallStore.addTeam({name:`تیم نمایشی ${id}`});
+    await display.webContents.executeJavaScript(`receive(${JSON.stringify({...smallStore.view(),revision:store.view().revision+10000})})`);
+    await assertTableFit(10,1,1);
+    // Restore real state; the following reload also checks persisted layout.
+    display.reload();await waitFor(display,"document.querySelectorAll('.draw-ticket').length>0");
+    check('ten-team leaderboard shows all ten on one page with no clipped rows');
     // Full two-round operational acceptance: 22 teams, 44 athlete slots.
     for (let i=15;i<=22;i++) await ui(`await window.scoreboardAPI.addTeam({name:'تیم آزمایشی ${i}',athletePrimary:'ورزشکار اول ${i}',athleteSecondary:'ورزشکار دوم ${i}'})`);
+    await ui("await window.scoreboardAPI.updateSettings({autoRotate:false});await window.scoreboardAPI.setDisplay({mode:'item',disciplineId:'water'})");
+    for(const [width,height] of [[1280,720],[1920,1080]]){
+      display.setSize(width,height);await delay(100);
+      await assertTableFit(11,1,2);
+      const first=await display.webContents.executeJavaScript("Array.from(document.querySelectorAll('tbody tr'),r=>r.dataset.teamId)");
+      await display.webContents.executeJavaScript("document.getElementById('next-page').click()");
+      const second=await assertTableFit(11,1,2);assert.equal(new Set([...first,...second.ids]).size,22);
+      await display.webContents.executeJavaScript("document.getElementById('previous-page').click()");
+      fs.writeFileSync(path.join(out,`teams-22-paged-${width}.png`),(await display.webContents.capturePage()).toPNG());
+      await ui("await window.scoreboardAPI.setDisplay({mode:'individual'})");
+      await assertTableFit(22,1,2);
+      const athleteFirst=await display.webContents.executeJavaScript("Array.from(document.querySelectorAll('tbody tr'),r=>r.dataset.athleteId)");
+      await display.webContents.executeJavaScript("document.getElementById('next-page').click()");
+      const athleteSecond=await assertTableFit(22,1,2);assert.equal(new Set([...athleteFirst,...athleteSecond.ids]).size,44);
+      await display.webContents.executeJavaScript("document.getElementById('previous-page').click()");
+      assert.equal(await display.webContents.executeJavaScript("document.querySelector('tbody tr').querySelectorAll('[data-slot]').length"),4);
+      fs.writeFileSync(path.join(out,`athletes-44-paged-${width}.png`),(await display.webContents.capturePage()).toPNG());
+      await ui("document.querySelector('[data-view=settings]').click();document.getElementById('display-layout').value='all';document.getElementById('save-settings').click()");
+      await waitFor(display,"document.body.classList.contains('single-page')");await assertTableFit(44,2,1);
+      assert.equal(new CompetitionStore(path.join(temporary,'competition')).view().settings.displayLayout,'all');
+      fs.writeFileSync(path.join(out,`athletes-44-one-page-${width}.png`),(await display.webContents.capturePage()).toPNG());
+      await ui("await window.scoreboardAPI.setDisplay({mode:'item',disciplineId:'combined'})");await assertTableFit(22,2,1);
+      await ui("await window.scoreboardAPI.setDisplay({mode:'standings'})");await assertTableFit(22,2,1);
+      await ui("await window.scoreboardAPI.updateSettings({displayLayout:'paged'});await window.scoreboardAPI.setDisplay({mode:'item',disciplineId:'water'})");
+    }
+    check('22 teams and 44 athletes fit exactly two pages at 720p and 1080p; all 44 fit one page without missing or duplicate athletes; colored assignments are distinct');
+    display.setSize(1280,720);
     await ui("await window.scoreboardAPI.setDisplay({mode:'individual'});document.querySelector('[data-view=entry]').click();const d=document.getElementById('discipline');d.value='combined';d.dispatchEvent(new Event('change',{bubbles:true}));const t=document.getElementById('team');t.value='1';t.dispatchEvent(new Event('change',{bubbles:true}));document.getElementById('athlete-primary').value='ورزشکار اول ۱';for(const [id,v] of [['primary-m','0'],['primary-s','30'],['primary-h','0']])document.getElementById(id).value=v;document.getElementById('save-result').click()");
     await waitFor(admin,"document.querySelector('#toast').textContent.includes('رتبه انفرادی')");
     assert.equal(store.view().combinedTeams.find(t=>t.teamId===1).status,'Partial');
@@ -179,7 +225,8 @@ app.whenReady().then(async () => {
     await ui("const t=document.getElementById('team');t.value='1';t.dispatchEvent(new Event('change',{bubbles:true}));const r=document.getElementById('combined-round');r.value='2';r.dispatchEvent(new Event('change',{bubbles:true}));");
     const slot=store.view().combinedTeams.find(t=>t.teamId===1).rounds[1];
     assert.equal(slot.athleteNumber,36);assert.equal(slot.lane,1); // reverse manual order puts team 1 at slot 14.
-    assert.ok((await admin.webContents.executeJavaScript("document.getElementById('lane-assignment').textContent")).includes('لاین 1'));
+    assert.equal(await admin.webContents.executeJavaScript("document.querySelector('#lane-assignment [data-slot=lane] b').textContent"),"۱");
+    assert.equal(await admin.webContents.executeJavaScript("document.querySelectorAll('#lane-assignment [data-slot]').length"),4);
     await ui("for(const [id,v] of [['primary-m','0'],['primary-s','50'],['primary-h','0']])document.getElementById(id).value=v;document.getElementById('penalty').value='10';document.getElementById('save-result').click()");
     await waitFor(admin,"document.querySelector('#toast').textContent.includes('رتبه تیمی: 1')");
     assert.equal(store.view().itemLeaderboards.combined.find(r=>r.team.id===1).finalValue,45000);
