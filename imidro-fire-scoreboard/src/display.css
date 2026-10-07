@@ -17,3 +17,4 @@ footer{display:grid;grid-template-columns:auto minmax(0,1fr);column-gap:12px;ali
 .two-tables .pair-record{font-size:1em}
 
 .brand>div{min-width:0}.brand #venue{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+main{grid-template-columns:minmax(0,1fr)}header,.table-panel{min-width:0}
