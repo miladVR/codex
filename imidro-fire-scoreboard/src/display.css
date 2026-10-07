@@ -15,3 +15,5 @@ main{height:100vh;min-height:0;padding:10px 1.6vw;display:grid;grid-template-row
 footer{display:grid;grid-template-columns:auto minmax(0,1fr);column-gap:12px;align-items:center}#sponsor-logos{grid-column:1;grid-row:1}#display-message{grid-column:2;grid-row:1}.org-credit{grid-column:1/-1;grid-row:2}
 .result-tables .record{font-size:clamp(12px,calc(var(--table-font) * .78),22px)}.two-tables .record{font-size:clamp(12px,1vw,18px)}
 .two-tables .pair-record{font-size:1em}
+
+.brand>div{min-width:0}.brand #venue{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}

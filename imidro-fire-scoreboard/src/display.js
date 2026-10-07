@@ -62,7 +62,9 @@ function render() {
   document.body.classList.toggle("item-mode", isItem() || isIndividual());
   document.body.classList.toggle("single-page",state.settings.displayLayout==="all");
   document.querySelector("#competition-name").textContent = state.settings.competitionName;
+  document.querySelector("#competition-name").title=state.settings.competitionName;
   document.querySelector("#venue").textContent = [state.settings.venue,state.settings.eventDate].filter(Boolean).join(" · ");
+  document.querySelector("#venue").title=document.querySelector("#venue").textContent;
   document.querySelector(".competition-logo").src=state.settings.competitionLogo || "../assets/competition-logo.jpg";
   const sponsors=document.querySelector("#sponsor-logos");sponsors.replaceChildren();
   for (const src of state.settings.sponsorLogos.filter(Boolean)) { const img=document.createElement("img");img.src=src;img.alt="حامی مسابقه";sponsors.append(img); }

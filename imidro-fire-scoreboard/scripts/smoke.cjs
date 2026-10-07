@@ -211,8 +211,10 @@ app.whenReady().then(async () => {
     }
     check('22 teams and 44 athletes fit exactly two pages at 720p and 1080p; all 44 fit one page without missing or duplicate athletes; colored assignments are distinct');
     const fullStore=new CompetitionStore(path.join(temporary,'populated-layout'));
+    for(let id=1;id<=22;id++)fullStore.addTeam({name:`تیم شرکت‌کننده کامل ${id}`,athletePrimary:`ورزشکار اول آزمایشی ${id}`,athleteSecondary:`ورزشکار دوم آزمایشی ${id}`});
+    const layoutLogo="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jZ2kAAAAASUVORK5CYII=";
+    fullStore.updateSettings({competitionName:"رویداد آزمایشی ".repeat(10),venue:"محل مسابقه و سالن اصلی ".repeat(5),eventDate:"۱۴۰۵/۰۷/۱۵",sponsorLogos:[layoutLogo,layoutLogo,layoutLogo],displayMessage:"پیام زیرنویس مسابقه ".repeat(11)});
     for(let id=1;id<=22;id++){
-      fullStore.addTeam({name:`تیم شرکت‌کننده کامل ${id}`,athletePrimary:`ورزشکار اول آزمایشی ${id}`,athleteSecondary:`ورزشکار دوم آزمایشی ${id}`});
       fullStore.saveRoundScore({teamId:id,round:1,rawMs:64050+id*10,penaltyMs:5050});fullStore.saveRoundScore({teamId:id,round:2,rawMs:64500+id*10,penaltyMs:2050});
       for(const d of fullStore.view().disciplines.filter(d=>d.id!=='combined'))fullStore.saveResult({teamId:id,disciplineId:d.id,rawPrimaryMs:64500+id*10,scientificScore:100-id/10,scientificDurationMs:64500,penaltyMs:5050});
     }
