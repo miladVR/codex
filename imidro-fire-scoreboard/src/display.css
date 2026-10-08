@@ -32,7 +32,7 @@ main{grid-template-columns:minmax(0,1fr)}header,.table-panel{min-width:0}
 .individual-table th:nth-child(7),.individual-table th:nth-child(9){width:14%}
 @media(prefers-reduced-motion:reduce){.name-scroll .full-name{animation:none;transform:scaleX(var(--name-scale,1));transform-origin:right}}
 
-.result-tables .name-viewport{max-height:calc(var(--row-height) - 4px)}
+.result-tables .name-viewport{max-height:max(13px,calc(var(--row-height) - 4px))}
 /* Compact assignment headers must not consume three lines at 720p. */
 .two-tables .individual-table th:nth-child(2){width:31%}
 .two-tables .individual-table th:nth-child(4),.two-tables .individual-table th:nth-child(5),.two-tables .individual-table th:nth-child(6){width:6%}
