@@ -35,3 +35,10 @@ test("layout setting survives migration, reload and reset; display rounding leav
   const migrated=new CompetitionStore(dir);assert.equal(migrated.view().settings.displayLayout,"paged");assert.deepEqual(migrated.view().roundScores,before.roundScores);
   migrated.updateSettings({displayLayout:"all"});const q=migrated.prepareDeletion({kind:"reset"});migrated.deletionChallenges.get(q.token).readyAt=0;migrated.confirmDeletion({token:q.token,confirmation:"تایید"});assert.equal(migrated.view().settings.displayLayout,"paged");
 });
+
+test('combined save readiness depends only on the selected athlete and gives actionable lock reasons',()=>{
+ const {combinedSaveState}=require('../src/presentation.js');
+ assert.equal(combinedSaveState({lane:1,rawMs:30000}).enabled,true);
+ assert.equal(combinedSaveState({lane:2,rawMs:30000,penaltyMs:1000}).enabled,true);
+ for(const input of [{lane:1,rawMs:null},{lane:1,rawMs:0},{lane:null,rawMs:30000},{lane:1,rawMs:30000,penaltyMs:-1},{lane:1,rawMs:30000,busy:true},{lane:1,rawMs:30000,approved:true}]){const s=combinedSaveState(input);assert.equal(s.enabled,false);assert.ok(s.reason.length>10);}
+});

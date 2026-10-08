@@ -168,7 +168,7 @@ app.whenReady().then(async () => {
     check("draw screen labels turn numbers rather than score ranks");
     async function assertTableFit(expectedRows,expectedTables,expectedPages){
       await waitFor(display,`document.querySelectorAll('tbody tr').length===${expectedRows} && document.querySelectorAll('#standings table').length===${expectedTables}`);
-      await display.webContents.executeJavaScript("document.fonts.ready.then(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))).then(()=>Promise.all(document.getAnimations().map(a=>a.finished.catch(()=>{}))))");
+      await display.webContents.executeJavaScript("document.fonts.ready.then(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))).then(()=>Promise.all(document.getAnimations().filter(a=>a.effect.getComputedTiming().iterations!==Infinity).map(a=>a.finished.catch(()=>{}))))");
       const fit=await display.webContents.executeJavaScript(`(()=>{const area=document.getElementById('standings').getBoundingClientRect();const rows=Array.from(document.querySelectorAll('tbody tr'));return {pages:document.getElementById('page-info').textContent,bottom:Math.max(...rows.map(r=>r.getBoundingClientRect().bottom)),areaBottom:area.bottom,areaTop:area.top,headHeight:document.querySelector('thead')?.getBoundingClientRect().height,rowHeight:rows[0]?.getBoundingClientRect().height,styleHeight:document.getElementById('standings').style.getPropertyValue('--row-height'),footer:document.querySelector('footer').getBoundingClientRect().bottom,height:innerHeight,width:document.documentElement.scrollWidth,viewport:innerWidth,inside:Array.from(document.querySelectorAll('header,.table-panel,.page-controls,footer,.clock')).every(n=>{const b=n.getBoundingClientRect();return b.left>=-1 && b.right<=innerWidth+1}),ids:rows.map(r=>r.dataset.athleteId||r.dataset.teamId),badges:Array.from(document.querySelectorAll('tbody .slot-badge')).every(b=>b.getBoundingClientRect().width<=b.closest('td').getBoundingClientRect().width+1)}})()`);
       assert.ok(fit.pages.includes(`از ${expectedPages.toLocaleString('fa-IR')}`),JSON.stringify(fit));
       assert.ok(fit.bottom<=fit.areaBottom+2,JSON.stringify(fit));assert.ok(fit.footer<=fit.height+2,JSON.stringify(fit));assert.ok(fit.width<=fit.viewport+2,JSON.stringify(fit));assert.ok(fit.badges,JSON.stringify(fit));assert.ok(fit.inside,JSON.stringify(fit));assert.equal(new Set(fit.ids).size,expectedRows);
@@ -211,7 +211,8 @@ app.whenReady().then(async () => {
     }
     check('22 teams and 44 athletes fit exactly two pages at 720p and 1080p; all 44 fit one page without missing or duplicate athletes; colored assignments are distinct');
     const fullStore=new CompetitionStore(path.join(temporary,'populated-layout'));
-    for(let id=1;id<=22;id++)fullStore.addTeam({name:`تیم شرکت‌کننده کامل ${id}`,athletePrimary:`ورزشکار اول آزمایشی ${id}`,athleteSecondary:`ورزشکار دوم آزمایشی ${id}`});
+    for(let id=1;id<=22;id++)fullStore.addTeam({name:`منطقه ویژه صنایع فلزی و معدنی خلیج فارس ${id}`,athletePrimary:`ورزشکار اول آزمایشی ${id}`,athleteSecondary:`ورزشکار دوم آزمایشی ${id}`});
+    fullStore.createDraw({disciplineId:'all',method:'manual',entries:fullStore.view().teams.map(t=>({teamId:t.id,drawOrder:t.id}))});
     const layoutLogo="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jZ2kAAAAASUVORK5CYII=";
     fullStore.updateSettings({competitionName:"رویداد آزمایشی ".repeat(10),venue:"محل مسابقه و سالن اصلی ".repeat(5),eventDate:"۱۴۰۵/۰۷/۱۵",sponsorLogos:[layoutLogo,layoutLogo,layoutLogo],displayMessage:"پیام زیرنویس مسابقه ".repeat(11)});
     for(let id=1;id<=22;id++){
@@ -226,9 +227,18 @@ app.whenReady().then(async () => {
         await display.webContents.executeJavaScript(`receive(${JSON.stringify(fixture)})`);
         await assertTableFit(mode==='individual'?(layout==='all'?44:22):22,layout==='all'?2:1,layout==='all'?1:2);
         const clippedTimes=await display.webContents.executeJavaScript("Array.from(document.querySelectorAll('td.record')).filter(c=>c.scrollWidth>c.clientWidth+2).length");assert.equal(clippedTimes,0,'Full time digits must be visible');
+        const names=await display.webContents.executeJavaScript(`Array.from(document.querySelectorAll('td.team .name-viewport'),v=>{const n=v.querySelector('.full-name');return {text:n.textContent,font:parseFloat(getComputedStyle(n).fontSize),scroll:v.classList.contains('name-scroll'),full:n.scrollWidth<=v.clientWidth+2&&n.scrollHeight<=v.clientHeight+2,ellipsis:getComputedStyle(n).textOverflow==='ellipsis',distance:parseFloat(v.style.getPropertyValue('--name-shift'))};})`);
+        assert.ok(names.every(n=>n.text.includes('خلیج فارس')&&n.font>=12&&!n.ellipsis&&(n.full||(n.scroll&&n.distance>0))),JSON.stringify(names));
         fs.writeFileSync(path.join(out,`populated-${mode}-${layout}-${width}.png`),(await display.webContents.capturePage()).toPNG());
       }
     }
+    const drawFixture={...fullStore.view(),revision:++fullRevision};drawFixture.settings={...drawFixture.settings,displayMode:'draw',displayDrawId:fullStore.view().draws[0].id,displayLayout:'all',autoRotate:false};
+    await display.webContents.executeJavaScript(`receive(${JSON.stringify(drawFixture)})`);await waitFor(display,"document.querySelectorAll('.draw-ticket').length===22");await delay(150);
+    assert.ok(await display.webContents.executeJavaScript("Array.from(document.querySelectorAll('.draw-ticket .full-name')).every(n=>n.textContent.includes('خلیج فارس')&&getComputedStyle(n).textOverflow!=='ellipsis')"));
+    await display.webContents.debugger.sendCommand('Emulation.setEmulatedMedia',{features:[{name:'prefers-reduced-motion',value:'reduce'}]});await delay(100);
+    assert.ok(await display.webContents.executeJavaScript("Array.from(document.querySelectorAll('.name-scroll .full-name')).every(n=>getComputedStyle(n).animationName==='none')"));await forceAnimationsEnabled(display);
+    fs.writeFileSync(path.join(out,'long-names-draw.png'),(await display.webContents.capturePage()).toPNG());
+    check('reported long team name stays complete and readable in all leaderboard modes and draw; reduced-motion disables name panning');
     display.reload();await waitFor(display,"document.querySelector('#table-title').textContent==='آبرسانی'");
     check('fully populated 22-team/44-athlete displays fit at 720p/1080p including paired times, penalties, long names and podium; time digits stay visible');
     display.setSize(1280,720);
@@ -339,6 +349,27 @@ app.whenReady().then(async () => {
     await display.webContents.executeJavaScript("document.getElementById('context-help-close').click()");
     assert.deepEqual(store.view(),beforePublicHelp);
     check("public display paging help opens and closes without changing competition data");
+    const originalSlots=store.view().combinedSlots;
+    await ui("document.querySelector('[data-view=teams]').click();document.getElementById('team-name').value='تیم دیررس آزمون';document.getElementById('add-team').click()");
+    await waitFor(admin,"document.querySelectorAll('.team-list>.team').length===23");
+    await ui("document.querySelector('[data-view=entry]').click();const d=document.getElementById('discipline');d.value='combined';d.dispatchEvent(new Event('change',{bubbles:true}));const t=document.getElementById('team');t.value='23';t.dispatchEvent(new Event('change',{bubbles:true}));const r=document.getElementById('combined-round');r.value='1';r.dispatchEvent(new Event('change',{bubbles:true}));");
+    assert.equal(await admin.webContents.executeJavaScript("document.getElementById('primary-m').value"),'0');assert.equal(await admin.webContents.executeJavaScript("document.getElementById('primary-h').value"),'0');
+    assert.equal(await admin.webContents.executeJavaScript("document.getElementById('save-result').disabled"),true);
+    await ui("document.getElementById('athlete-primary').value='ورزشکار تکمیلی';const s=document.getElementById('primary-s');s.value='44';s.dispatchEvent(new Event('change',{bubbles:true}));");
+    assert.equal(await admin.webContents.executeJavaScript("document.getElementById('save-result').disabled"),false);
+    assert.ok((await admin.webContents.executeJavaScript("document.getElementById('combined-save-status').textContent")).includes('دور دیگر لازم نیست'));
+    await ui("document.getElementById('save-result').click()");await waitFor(admin,"document.getElementById('toast').textContent.includes('رتبه انفرادی')");
+    assert.equal(store.view().combinedTeams.find(t=>t.teamId===23).status,'Partial');assert.equal(store.view().results.find(r=>r.teamId===23).rawSecondaryMs,null);assert.deepEqual(store.view().combinedSlots.slice(0,44),originalSlots);
+    assert.equal(new CompetitionStore(path.join(temporary,'competition')).view().combinedTeams.find(t=>t.teamId===23).rounds[0].score.rawMs,44000);
+    check('late team saves first athlete from real form with only seconds selected; defaults, live rank, partial state and all existing slots survive restart');
+    await ui("await window.scoreboardAPI.saveRoundScore({teamId:23,round:2,rawMs:40000});const result=(await window.scoreboardAPI.getState()).results.find(r=>r.teamId===23&&r.disciplineId==='combined');await window.scoreboardAPI.approveResult({resultId:result.id});");
+    await waitFor(admin,"Boolean(document.getElementById('reopen-combined'))");assert.equal(await admin.webContents.executeJavaScript("document.getElementById('save-result').disabled"),true);
+    assert.ok((await admin.webContents.executeJavaScript("document.getElementById('combined-save-status').textContent")).includes('قفل'));
+    await ui("document.getElementById('reopen-combined').click()");await waitFor(admin,"document.getElementById('save-result').disabled===false");
+    await ui("const s=document.getElementById('primary-s');s.value='42';s.dispatchEvent(new Event('input',{bubbles:true}));document.getElementById('save-result').click()");await waitFor(admin,"document.getElementById('toast').textContent.includes('رتبه تیمی')");
+    assert.equal(store.view().roundScores.find(r=>r.teamId===23&&r.round===1).rawMs,42000);assert.equal(store.view().roundScores.find(r=>r.teamId===23&&r.round===2).lane,2);
+    fs.writeFileSync(path.join(out,'late-team-independent-save.png'),(await admin.webContents.capturePage()).toPNG());
+    check('approved combined result shows its lock reason and reopens from the same form; selected round edits independently with opposite supplemental lanes');
     admin.setContentSize(1100,720);
     await waitFor(admin,"innerHeight===720");
     const resetBounds=await admin.webContents.executeJavaScript("(()=>{const b=document.getElementById('reset-all').getBoundingClientRect();return {right:b.right,bottom:b.bottom,top:b.top,width:innerWidth,height:innerHeight};})()");
@@ -367,7 +398,7 @@ app.whenReady().then(async () => {
     await waitFor(admin,"!document.getElementById('delete-dialog') && document.getElementById('toast').textContent.includes('شروع از صفر')");
     await waitFor(display,"document.querySelectorAll('tr[data-team-id]').length===0 && document.getElementById('announcement').textContent===''");
     const empty=store.view();
-    for(const key of ["teams","athletes","roundScores","results","draws","audits","combinedStartOrder"])assert.deepEqual(empty[key],[]);
+    for(const key of ["teams","athletes","roundScores","results","draws","audits","combinedStartOrder","combinedSlots"])assert.deepEqual(empty[key],[]);
     assert.equal(empty.settings.competitionLogo,"");assert.deepEqual(empty.settings.sponsorLogos,[]);assert.equal(empty.settings.eventDate,"");
     assert.deepEqual(fs.readdirSync(store.backupPath),[]);
     assert.deepEqual(new CompetitionStore(path.join(temporary,"competition")).view(),empty);
@@ -382,7 +413,7 @@ app.whenReady().then(async () => {
     check("full reset clears scores/draws/settings/audit/backups live; reopening stays empty and new team numbering starts at T01");
     assert.deepEqual(errors, []);
     fs.writeFileSync(path.join(out, "smoke-result.json"), JSON.stringify({ passed: true, bounds, checks, timings }, null, 2));
-    fs.writeFileSync(path.join(out, "live-data-example.json"), JSON.stringify({ schema_version: 4, revision: store.view().revision, team_scores: store.view().team_scores }, null, 2));
+    fs.writeFileSync(path.join(out, "live-data-example.json"), JSON.stringify({ schema_version: 5, revision: store.view().revision, team_scores: store.view().team_scores }, null, 2));
     console.log("Native Electron smoke passed: production IPC, admin forms, manual turns, live sorting, lifecycle, paging and PDF exports.");
     clearTimeout(watchdog); controller.close(); admin.destroy(); fs.rmSync(path.join(temporary, "competition"), { recursive: true, force: true }); app.exit(0);
   } catch (error) {

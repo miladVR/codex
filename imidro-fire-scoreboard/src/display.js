@@ -102,6 +102,29 @@ function fitPage() {
     area.style.setProperty("--table-font",`${Math.max(12,Math.min(26,Math.floor(rowHeight*.7)))}px`);
     area.style.setProperty("--badge-size",`${Math.max(14,Math.min(32,rowHeight-4))}px`);
   }
+  fitNames();
+}
+function fullName(text){return `<span class="name-viewport"><span class="full-name">${escapeHtml(text)}</span></span>`;}
+function fitNames(){
+  for(const viewport of document.querySelectorAll(".name-viewport")){
+    const text=viewport.querySelector(".full-name");
+    viewport.classList.remove("name-scroll");text.style.removeProperty("font-size");
+    const cell=viewport.closest("td"),row=cell?.closest("tr");
+    const height=row?Math.max(13,parseFloat(getComputedStyle(document.getElementById("standings")).getPropertyValue("--row-height"))-4):Math.max(28,viewport.parentElement.clientHeight-6);
+    const max=Math.max(12,Math.min(26,parseFloat(getComputedStyle(viewport.parentElement).fontSize)||20));
+    text.style.whiteSpace="normal";text.style.width="auto";
+    let size=max;
+    for(;size>12;size-=.5){text.style.fontSize=`${size}px`;if(text.scrollHeight<=height&&text.scrollWidth<=viewport.clientWidth+1)break;}
+    text.style.fontSize=`${Math.max(12,size)}px`;
+    if(text.scrollHeight>height||text.scrollWidth>viewport.clientWidth+1){
+      text.style.whiteSpace="nowrap";text.style.width="max-content";
+      const overflow=Math.max(0,text.scrollWidth-viewport.clientWidth);
+      viewport.classList.add("name-scroll");
+      viewport.style.setProperty("--name-shift",`${overflow}px`);
+      viewport.style.setProperty("--name-duration",`${Math.max(3,Math.min(8,2+overflow/45))}s`);
+      viewport.style.setProperty("--name-scale",Math.min(1,viewport.clientWidth/Math.max(1,text.scrollWidth)));
+    }
+  }
 }
 function totalRows(){return isDraw()?currentDraw().entries.length:activeRows().length;}
 function visibleRows(){const capacity=plan().capacity;return activeRows().slice(page*capacity,(page+1)*capacity);}
@@ -116,27 +139,27 @@ function renderTables(className,head,rows,rowHtml){
 function renderPodium() {
   if (isItem() || isIndividual() || isDraw()) { document.querySelector("#podium").innerHTML=""; return; }
   const leaders = state.liveStandings.filter(row => row.officialRank !== null && row.officialRank <= 3).slice(0, 3);
-  document.querySelector("#podium").innerHTML = leaders.length ? leaders.map(row => `<article class="podium-card ${row.officialRank === 1 ? "first" : ""}"><div class="medal">${number(row.officialRank)}</div><div><small>زنده — نیازمند تأیید نهایی</small><b>${escapeHtml(row.team.name)}</b></div><div class="score"><small>مجموع رتبه</small><strong>${number(row.total)}</strong></div></article>`).join("") : "";
+  document.querySelector("#podium").innerHTML = leaders.length ? leaders.map(row => `<article class="podium-card ${row.officialRank === 1 ? "first" : ""}"><div class="medal">${number(row.officialRank)}</div><div><small>زنده — نیازمند تأیید نهایی</small><b>${fullName(row.team.name)}</b></div><div class="score"><small>مجموع رتبه</small><strong>${number(row.total)}</strong></div></article>`).join("") : "";
 }
 function rankBadge(rank) { return `<span class="rank ${rank === 1 ? "first" : ""}">${number(rank)}</span>`; }
 function turnBadge(order) { return `<span class="turn" aria-label="نوبت اجرا ${number(order)}">${number(order)}</span>`; }
 function renderStandings() {
-  renderTables("overall-table",`<th>رتبه امتیازی</th><th>تیم</th><th>نوبت عمومی</th>${state.disciplines.map(item => `<th>${escapeHtml(item.name)}</th>`).join("")}<th>مجموع رتبه</th><th>تکمیل</th>`,visibleRows(),row=>`<tr data-team-id="${row.team.id}" class="${updatedTeams.has(row.team.id)?"updated":""}"><td>${rankBadge(row.officialRank)}</td><td class="team" title="${escapeHtml(row.team.name)}">${escapeHtml(row.team.name)}</td><td>${turnBadge(row.drawOrder)}</td>${state.disciplines.map(item=>`<td>${number(row.disciplineRanks[item.id])}</td>`).join("")}<td class="total">${number(row.completed?row.total:null)}</td><td class="complete">${number(row.completed)}/${number(state.disciplines.length)}</td></tr>`);
+  renderTables("overall-table",`<th>رتبه امتیازی</th><th>تیم</th><th>نوبت عمومی</th>${state.disciplines.map(item => `<th>${escapeHtml(item.name)}</th>`).join("")}<th>مجموع رتبه</th><th>تکمیل</th>`,visibleRows(),row=>`<tr data-team-id="${row.team.id}" class="${updatedTeams.has(row.team.id)?"updated":""}"><td>${rankBadge(row.officialRank)}</td><td class="team" title="${escapeHtml(row.team.name)}">${fullName(row.team.name)}</td><td>${turnBadge(row.drawOrder)}</td>${state.disciplines.map(item=>`<td>${number(row.disciplineRanks[item.id])}</td>`).join("")}<td class="total">${number(row.completed?row.total:null)}</td><td class="complete">${number(row.completed)}/${number(state.disciplines.length)}</td></tr>`);
 }
 function renderItem() {
   const item = currentItem();
   renderTables("item-table",`<th>رتبه امتیازی</th><th>تیم</th><th>نوبت اجرا</th><th>${item.mode === "score" ? "زمان پاسخ" : "رکورد خام"}</th><th>جریمه</th><th>${item.mode === "score" ? "نمره نهایی" : "زمان نهایی"}</th><th>وضعیت</th>`,visibleRows(),row=>{
     const result = row.result;
     const raw = !result ? "—" : item.mode === "score" ? formatTime(result.scientificDurationMs) : item.mode === "pair_time" ? `<span class="pair-record"><span>${formatTime(result.rawPrimaryMs)}</span><span>${formatTime(result.rawSecondaryMs)}</span></span>` : formatTime(result.rawPrimaryMs);
-    return `<tr data-team-id="${row.team.id}" class="${updatedTeams.has(row.team.id) ? "updated" : ""}"><td>${rankBadge(row.rank)}</td><td class="team" title="${escapeHtml(row.team.name)}">${escapeHtml(row.team.name)}</td><td>${turnBadge(row.drawOrder)}</td><td class="record">${raw}</td><td>${result && item.mode !== "score" ? number(result.penaltyMs / 1000) + " ثانیه" : "—"}</td><td class="total record">${item.mode === "score" ? number(row.finalValue) : formatTime(row.finalValue)}</td><td><span class="result-status ${result?.status === "approved" ? "approved" : "draft"}">${result?.completionStatus==="Partial" ? "در حال تکمیل" : !result ? "ثبت نشده" : result.status === "approved" ? "تأییدشده" : "موقت"}</span></td></tr>`;
+    return `<tr data-team-id="${row.team.id}" class="${updatedTeams.has(row.team.id) ? "updated" : ""}"><td>${rankBadge(row.rank)}</td><td class="team" title="${escapeHtml(row.team.name)}">${fullName(row.team.name)}</td><td>${turnBadge(row.drawOrder)}</td><td class="record">${raw}</td><td>${result && item.mode !== "score" ? number(result.penaltyMs / 1000) + " ثانیه" : "—"}</td><td class="total record">${item.mode === "score" ? number(row.finalValue) : formatTime(row.finalValue)}</td><td><span class="result-status ${result?.status === "approved" ? "approved" : "draft"}">${result?.completionStatus==="Partial" ? "در حال تکمیل" : !result ? "ثبت نشده" : result.status === "approved" ? "تأییدشده" : "موقت"}</span></td></tr>`;
   });
 }
 function renderIndividual() {
-  renderTables("individual-table",'<th>رتبه</th><th>ورزشکار / تیم</th><th>شماره ورزشکار</th><th>دور</th><th>گروه</th><th>لاین</th><th>زمان خام</th><th>جریمه</th><th>زمان نهایی</th>',visibleRows(),row=>`<tr data-team-id="${row.team.id}" data-athlete-id="${row.athlete.id}" class="${updatedTeams.has(row.team.id)?"updated":""}"><td>${rankBadge(row.rank)}</td><td class="team" title="${escapeHtml(row.athlete.name||`ورزشکار دور ${row.athlete.round}`)} — ${escapeHtml(row.team.name)}">${escapeHtml(row.athlete.name||`ورزشکار دور ${row.athlete.round}`)} <small>· ${escapeHtml(row.team.name)}</small></td><td>${slotBadge("number",row.athleteNumber)}</td><td>${slotBadge("round",row.athlete.round)}</td><td>${slotBadge("heat",row.heat)}</td><td>${slotBadge("lane",row.lane)}</td><td class="record">${formatTime(row.result?.rawMs)}</td><td>${row.result?number(row.result.penaltyMs/1000):"—"}</td><td class="total record">${formatTime(row.finalValue)}</td></tr>`);
+  renderTables("individual-table",'<th>رتبه</th><th>ورزشکار / تیم</th><th>شماره ورزشکار</th><th>دور</th><th>گروه</th><th>لاین</th><th>زمان خام</th><th>جریمه</th><th>زمان نهایی</th>',visibleRows(),row=>`<tr data-team-id="${row.team.id}" data-athlete-id="${row.athlete.id}" class="${updatedTeams.has(row.team.id)?"updated":""}"><td>${rankBadge(row.rank)}</td><td class="team" title="${escapeHtml(row.athlete.name||`ورزشکار دور ${row.athlete.round}`)} — ${escapeHtml(row.team.name)}">${fullName(`${row.athlete.name||`ورزشکار دور ${row.athlete.round}`} · ${row.team.name}`)}</td><td>${slotBadge("number",row.athleteNumber)}</td><td>${slotBadge("round",row.athlete.round)}</td><td>${slotBadge("heat",row.heat)}</td><td>${slotBadge("lane",row.lane)}</td><td class="record">${formatTime(row.result?.rawMs)}</td><td>${row.result?number(row.result.penaltyMs/1000):"—"}</td><td class="total record">${formatTime(row.finalValue)}</td></tr>`);
 }
 function renderDraw() {
   const capacity=plan().capacity;
-  document.querySelector("#standings").innerHTML = `<div class="draw-grid">${currentDraw().entries.slice(page * capacity, (page + 1) * capacity).map(entry => `<article class="draw-ticket"><strong class="turn">${number(entry.drawOrder)}</strong><div><small>نوبت اجرا — نه رتبه</small><b>${escapeHtml(entry.name)}</b><small>${escapeHtml(entry.organization || entry.code)}</small></div></article>`).join("")}</div>`;
+  document.querySelector("#standings").innerHTML = `<div class="draw-grid">${currentDraw().entries.slice(page * capacity, (page + 1) * capacity).map(entry => `<article class="draw-ticket"><strong class="turn">${number(entry.drawOrder)}</strong><div><small>نوبت اجرا — نه رتبه</small><b>${fullName(entry.name)}</b><small>${escapeHtml(entry.organization || entry.code)}</small></div></article>`).join("")}</div>`;
 }
 function rotationEnabled() { return !document.getElementById("context-help-dialog") && !paused && state.settings.autoRotate !== false && !reducedMotion.matches; }
 document.querySelector("#next-page").addEventListener("click", () => { if (state) { page = (page + 1) % pages(); render(); } });

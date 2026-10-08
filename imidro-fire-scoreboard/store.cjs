@@ -4,7 +4,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const { randomInt, randomUUID } = require("node:crypto");
 const ORGANIZATION = "امور آموزش و توسعه شایستگی مجتمع مس سرچشمه رفسنجان";
-const { startOrder, assignment, completion, individualLeaderboard, migrateCombined } = require("./combined.cjs");
+const { startOrder, assignment, completion, individualLeaderboard, migrateCombined, ensureSchedule, freezeSchedule } = require("./combined.cjs");
 const { validateLogo } = require("./branding.cjs");
 const { buildStandings, buildItemLeaderboard } = require("./scoring.cjs");
 
@@ -56,6 +56,7 @@ class CompetitionStore {
     if (this.state.teams.some((team) => team.name === name)) throw new Error("این نام تیم قبلاً ثبت شده است.");
     const team = { id: this.state.nextTeamId++, code: `T${String(this.state.nextTeamId - 1).padStart(2, "0")}`, name, organization };
     this.state.teams.push(team);
+    ensureSchedule(this.state);
     for (const round of [1,2]) this.state.athletes.push({id:this.state.nextAthleteId++,teamId:team.id,round,
       name:clean(payload[round===1?"athletePrimary":"athleteSecondary"],100)});
     this.#audit("create_team", `تیم «${name}» افزوده شد.`);
@@ -147,7 +148,7 @@ class CompetitionStore {
     if (oldScore?.penaltyMs>0 && penaltyMs===0) throw new Error("پاک‌کردن جریمه باید با حذف دومرحله‌ای انجام شود.");
     const name=payload.athleteName===undefined ? athlete.name : clean(payload.athleteName,100);
     if (athlete.name && !name) throw new Error("پاک‌کردن نام ورزشکار باید از حذف دومرحله‌ای انجام شود.");
-    if (!this.state.combinedStartOrder.length) this.state.combinedStartOrder=startOrder(this.state);
+    freezeSchedule(this.state);
     athlete.name=name;
     this.#writeRound(teamId,round,rawMs,penaltyMs,payload);
     this.#syncCombined(teamId);
@@ -165,7 +166,7 @@ class CompetitionStore {
     const legacyPenalty=Math.round(boundedNumber(payload.penaltyMs ?? 0,0,3600000,"جریمه مشترک"));
     if (this.state.roundScores.some(score=>score.teamId===teamId && score.penaltyMs>0) || (existing?.legacyTeamPenaltyMs>0 && legacyPenalty===0)) throw new Error("برای تغییر رکورد دارای جریمه از ثبت مستقل و برای حذف جریمه از تأیید دومرحله‌ای استفاده کنید.");
     assignment(this.state,teamId,1);
-    if (!this.state.combinedStartOrder.length) this.state.combinedStartOrder=startOrder(this.state);
+    freezeSchedule(this.state);
     for (const round of [1,2]) {
       const athlete=this.state.athletes.find(a=>a.teamId===teamId && a.round===round);
       const supplied=payload[round===1?"athletePrimary":"athleteSecondary"];
@@ -393,7 +394,7 @@ class CompetitionStore {
         parsed.settings.displayMessage = "نتایج زنده تا تأیید سرداور موقت هستند؛ نوبت اجرا با رتبه متفاوت است.";
       if(!["paged","all"].includes(parsed.settings.displayLayout)) parsed.settings.displayLayout="paged";
       migrateCombined(parsed);
-      parsed.version = 4;
+      parsed.version = 5;
       parsed.organizationCredit = ORGANIZATION;
       return parsed;
     } catch (error) {
@@ -407,10 +408,10 @@ class CompetitionStore {
 
   #initialState() {
     return {
-        version: 4,
+        version: 5,
         revision: 0,
         organizationCredit: ORGANIZATION,
-        draws: [], athletes:[],roundScores:[],combinedStartOrder:[],nextAthleteId:1,nextRoundScoreId:1,
+        draws: [], athletes:[],roundScores:[],combinedStartOrder:[],combinedSlots:[],nextAthleteId:1,nextRoundScoreId:1,
         settings: {
           eventDate:"",competitionLogo:"",sponsorLogos:[],
           competitionName: "سومین دوره مسابقات علمی و عملیاتی آتش‌نشانان ایمیدرو",

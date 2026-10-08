@@ -18,3 +18,18 @@ footer{display:grid;grid-template-columns:auto minmax(0,1fr);column-gap:12px;ali
 
 .brand>div{min-width:0}.brand #venue{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 main{grid-template-columns:minmax(0,1fr)}header,.table-panel{min-width:0}
+
+/* Full team names are fitted individually; long overflow is readable on the hall screen. */
+.name-viewport{display:block;min-width:0;overflow:hidden;text-overflow:clip;direction:rtl}
+.full-name{display:block;line-height:1.05;overflow-wrap:anywhere;text-overflow:clip;font-weight:700}
+.name-scroll .full-name{animation:full-name-pan var(--name-duration,6s) ease-in-out infinite alternate}
+@keyframes full-name-pan{0%,15%{transform:translateX(0)}85%,100%{transform:translateX(var(--name-shift,0px))}}
+.podium-card>div:nth-child(2){min-width:0;flex:1}.podium-card .score{flex-shrink:0}
+.result-tables td.team{white-space:normal;text-overflow:clip}
+.overall-table th:nth-child(2){width:30%}.item-table th:nth-child(2){width:32%}
+.individual-table th:nth-child(2),.two-tables .individual-table th:nth-child(2){width:34%}
+.individual-table th:nth-child(4),.individual-table th:nth-child(5),.individual-table th:nth-child(6),.two-tables .individual-table th:nth-child(4),.two-tables .individual-table th:nth-child(5),.two-tables .individual-table th:nth-child(6){width:5%}
+.individual-table th:nth-child(7),.individual-table th:nth-child(9){width:14%}
+@media(prefers-reduced-motion:reduce){.name-scroll .full-name{animation:none;transform:scaleX(var(--name-scale,1));transform-origin:right}}
+
+.result-tables .name-viewport{max-height:calc(var(--row-height) - 4px)}

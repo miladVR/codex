@@ -25,7 +25,7 @@ test('lane matrix swaps round 2, numbers 23..44 and no two athletes share a heat
  }}
  const before=store.view();assert.throws(()=>store.saveRoundScore({teamId:1,round:2,rawMs:50000,lane:1}),/لاین/);assert.deepEqual(store.view(),before);
  save(store,1,1,60000);store.addTeam({name:'دیررس'});assert.equal(assignment(store.view(),1,2).athleteNumber,23);
- assert.throws(()=>save(store,23,1,60000),/فهرست ثابت/);
+ save(store,23,1,60000);assert.equal(assignment(store.view(),23,1).athleteNumber,45);assert.equal(assignment(store.view(),23,2).lane,2);
 });
 test('per-athlete penalties average once; second round produces and instantly reorders team rank',t=>{
  const {store}=fixture(t,2);save(store,1,1,60000,10000);save(store,2,1,50000);
@@ -42,7 +42,7 @@ test('old combined scores retain exact average and common penalty after migratio
  const {store,dir}=fixture(t,2);store.saveCombinedPair({teamId:1,rawPrimaryMs:60000,rawSecondaryMs:80000,penaltyMs:5000});
  const legacy=JSON.parse(fs.readFileSync(store.dataPath));legacy.version=3;delete legacy.athletes;delete legacy.roundScores;delete legacy.combinedStartOrder;
  delete legacy.nextAthleteId;delete legacy.nextRoundScoreId;for(const r of legacy.results){delete r.completionStatus;delete r.legacyTeamPenaltyMs;delete r.roundPenalties;}
- fs.writeFileSync(store.dataPath,JSON.stringify(legacy));const restored=new CompetitionStore(dir);assert.equal(restored.view().version,4);assert.equal(restored.view().itemLeaderboards.combined[0].finalValue,75000);
+ fs.writeFileSync(store.dataPath,JSON.stringify(legacy));const restored=new CompetitionStore(dir);assert.equal(restored.view().version,5);assert.equal(restored.view().itemLeaderboards.combined[0].finalValue,75000);
  save(restored,1,1,40000);assert.equal(restored.view().itemLeaderboards.combined[0].finalValue,65000);
 });
 test('deletion rejects fast, unconfirmed, stale and replayed requests; removing one round restores partial and recalculates ranks',t=>{
@@ -85,4 +85,21 @@ test('clearing a penalty uses the same safety gate while preserving raw time and
  const score=store.view().roundScores[0],name=store.view().athletes[0].name,q=store.prepareDeletion({kind:'round_penalty',id:score.id});
  const now=Date.now;Date.now=()=>now()+2100;try{store.confirmDeletion({token:q.token,confirmation:'تایید'});}finally{Date.now=now;}
  const next=store.view();assert.equal(next.roundScores[0].rawMs,60000);assert.equal(next.roundScores[0].penaltyMs,0);assert.equal(next.athletes[0].name,name);assert.equal(next.itemLeaderboards.combined[0].finalValue,70000);
+});
+
+test('late teams get persistent supplemental slots without changing any previous athlete number or lane',t=>{
+ const {store,dir}=fixture(t,22);save(store,1,1,60000);const original=store.view().combinedSlots;
+ store.addTeam({name:'منطقه ویژه صنایع فلزی و معدنی خلیج فارس'});store.addTeam({name:'تیم دیررس دوم'});
+ assert.deepEqual(store.view().combinedSlots.slice(0,44),original);
+ for(const id of [23,24]){save(store,id,1,50000);save(store,id,2,40000);const a=assignment(store.view(),id,1),b=assignment(store.view(),id,2);assert.equal(b.lane,3-a.lane);assert.equal(a.supplemental,true);assert.equal(store.view().combinedTeams.find(t=>t.teamId===id).status,'Completed');}
+ const next=new CompetitionStore(dir).view();assert.deepEqual(next.combinedSlots,store.view().combinedSlots);assert.equal(next.individualLeaderboard.length,48);
+ for(const round of [1,2]){const slots=next.combinedSlots.filter(s=>s.round===round);assert.equal(new Set(slots.map(s=>`${s.heat}:${s.lane}`)).size,slots.length);}
+ const q=store.prepareDeletion({kind:'team',id:23});store.deletionChallenges.get(q.token).readyAt=0;store.confirmDeletion({token:q.token,confirmation:'تایید'});store.addTeam({name:'جایگزین جدید'});
+ assert.equal(assignment(store.view(),25,1).athleteNumber,49);assert.deepEqual(store.view().combinedSlots.slice(0,44),original);
+});
+test('v4 data with a late team missing its lane migrates without changing scores, approvals or base slots',t=>{
+ const {store,dir}=fixture(t,2);save(store,1,1,60000);save(store,1,2,50000);const result=store.view().results[0];store.approveResult({resultId:result.id});store.addTeam({name:'قبلاً بدون لاین'});
+ const legacy=JSON.parse(fs.readFileSync(store.dataPath));legacy.version=4;delete legacy.combinedSlots;fs.writeFileSync(store.dataPath,JSON.stringify(legacy));
+ const restored=new CompetitionStore(dir);assert.equal(restored.view().version,5);assert.deepEqual(restored.view().roundScores,legacy.roundScores);assert.deepEqual(restored.view().results,legacy.results);
+ assert.equal(assignment(restored.view(),1,2).athleteNumber,3);assert.equal(assignment(restored.view(),3,1).athleteNumber,5);save(restored,3,1,42000);assert.equal(restored.view().combinedTeams.find(t=>t.teamId===3).status,'Partial');
 });
