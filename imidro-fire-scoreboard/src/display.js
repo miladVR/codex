@@ -88,6 +88,7 @@ function render() {
 }
 function fitPage() {
   if (!state) return;
+  fitNames(true);
   const area = document.querySelector("#standings");
   if (isDraw()) {
     const columns=innerWidth<900?2:3;
@@ -105,12 +106,15 @@ function fitPage() {
   fitNames();
 }
 function fullName(text){return `<span class="name-viewport"><span class="full-name">${escapeHtml(text)}</span></span>`;}
-function fitNames(){
+function fitNames(nonTableOnly=false){
   for(const viewport of document.querySelectorAll(".name-viewport")){
+    const cell=viewport.closest("td"),row=cell?.closest("tr");
+    if(nonTableOnly&&cell)continue;
     const text=viewport.querySelector(".full-name");
     viewport.classList.remove("name-scroll");text.style.removeProperty("font-size");
-    const cell=viewport.closest("td"),row=cell?.closest("tr");
-    const height=row?Math.max(13,parseFloat(getComputedStyle(document.getElementById("standings")).getPropertyValue("--row-height"))-4):Math.max(28,viewport.parentElement.clientHeight-6);
+    const draw=viewport.closest(".draw-ticket");
+    const height=row?Math.max(13,parseFloat(getComputedStyle(document.getElementById("standings")).getPropertyValue("--row-height"))-4):draw?Math.max(13,draw.clientHeight-32):28;
+    viewport.style.height=`${height}px`;
     const max=Math.max(12,Math.min(26,parseFloat(getComputedStyle(viewport.parentElement).fontSize)||20));
     text.style.whiteSpace="normal";text.style.width="auto";
     let size=max;
