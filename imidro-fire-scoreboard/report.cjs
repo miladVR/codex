@@ -72,7 +72,7 @@ function registerReports({ ipcMain, dialog, BrowserWindow, getStore, getWindow, 
       report = new BrowserWindow({ show:false, webPreferences:{sandbox:true,contextIsolation:true,nodeIntegration:false} });
       await report.loadFile(temporary);
       await report.webContents.executeJavaScript("document.fonts.ready.then(() => true)");
-      const pdf = await report.webContents.printToPDF({ printBackground:true, pageSize:"A4", landscape:payload.type !== "draw", margins:{top:.5,bottom:.6,left:.45,right:.45}, displayHeaderFooter:true, headerTemplate:"<span></span>", footerTemplate:`<div style="font-family:Tahoma;font-size:8px;width:100%;text-align:center;direction:rtl">${ORGANIZATION} · <span class="pageNumber"></span> / <span class="totalPages"></span></div>` });
+      const pdf = await report.webContents.printToPDF({ printBackground:true, pageSize:"A4", landscape:payload.type !== "draw", margins:{top:.5,bottom:.6,left:.45,right:.45}, displayHeaderFooter:true, headerTemplate:"<span></span>", footerTemplate:`<div style="font-family:Tahoma;font-size:8px;width:100%;text-align:center;direction:rtl">${ORGANIZATION} · صفحه <span class="pageNumber"></span> از <span class="totalPages"></span></div>` });
       fs.writeFileSync(choice.filePath, pdf);
       return { canceled:false, filePath:choice.filePath };
     } finally { report?.destroy(); if (temporary && fs.existsSync(temporary)) fs.unlinkSync(temporary); exporting = false; }

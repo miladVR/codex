@@ -321,6 +321,7 @@ app.whenReady().then(async () => {
     await waitFor(admin,"document.getElementById('toast').textContent==='فایل PDF ذخیره شد.'");
     assert.equal(fs.readFileSync(outputPath).subarray(0,4).toString(),'%PDF');
     assert.equal(await admin.webContents.executeJavaScript("document.getElementById('export-live-table').dataset.helpAttached"),'true');
+    await ui("document.getElementById('export-live-table').scrollIntoView({block:'center'});await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));");
     fs.writeFileSync(path.join(out,'individual-pdf-button.png'),(await admin.webContents.capturePage()).toPNG());
     for(const discipline of store.view().disciplines){
       await ui(`const s=document.getElementById('leaderboard-scope');s.value=${JSON.stringify(discipline.id)};s.dispatchEvent(new Event('change',{bubbles:true}));document.getElementById('toast').textContent='';`);
@@ -342,6 +343,7 @@ app.whenReady().then(async () => {
     check('printable individual PDF covers all 44 long-named athletes both before competition and after all scores');
     await ui("document.querySelector('[data-view=teams]').click()");
     for(const id of ['team-athlete-1','team-athlete-2'])assert.ok(await admin.webContents.executeJavaScript(`document.querySelector('label[for=${id}]').textContent.includes('عملیات ترکیبی')`));
+    await ui("document.getElementById('team-athlete-1').scrollIntoView({block:'center'});await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));");
     fs.writeFileSync(path.join(out,'combined-roster-labels.png'),(await admin.webContents.capturePage()).toPNG());
     check('both roster name fields explicitly identify combined operations and their round');
 
