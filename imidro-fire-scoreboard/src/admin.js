@@ -2,7 +2,7 @@
 
 const api = window.scoreboardAPI;
 const help = window.scoreboardHelp;
-const {formatTime,slotBadge}=window.scoreboardPresentation;
+const {formatTime,slotBadge,combinedSaveState}=window.scoreboardPresentation;
 let state;
 let currentView = "dashboard";
 let drawScope = "all";
@@ -164,10 +164,10 @@ function renderResultFields() {
   help.decorate(document.getElementById("content"));
 }
 
-function timePicker(prefix) {
+function timePicker(prefix, zeroDefaults=false) {
   const options = (count) => Array.from({ length: count }, (_, index) => `<option value="${index}">${String(index).padStart(2, "0")}</option>`).join("");
   const placeholder = `<option value="" selected disabled>ــ</option>`;
-  return `<div class="time-picker"><div class="time-part"><label>دقیقه</label><select id="${prefix}-m">${placeholder}${options(100)}</select></div><span class="time-separator">:</span><div class="time-part"><label>ثانیه</label><select id="${prefix}-s">${placeholder}${options(60)}</select></div><span class="time-separator">.</span><div class="time-part"><label>صدم</label><select id="${prefix}-h">${placeholder}${options(100)}</select></div></div>`;
+  return `<div class="time-picker"><div class="time-part"><label>دقیقه</label><select id="${prefix}-m">${zeroDefaults?'':placeholder}${options(100)}</select></div><span class="time-separator">:</span><div class="time-part"><label>ثانیه</label><select id="${prefix}-s">${placeholder}${options(60)}</select></div><span class="time-separator">.</span><div class="time-part"><label>صدم</label><select id="${prefix}-h">${zeroDefaults?'':placeholder}${options(100)}</select></div></div>`;
 }
 
 function readTime(prefix) {
@@ -297,13 +297,14 @@ async function exportReport(payload) {
 
 function combinedTeam() { return state.combinedTeams.find(t=>t.teamId===Number(value("team"))); }
 function renderCombinedFields() {
+  document.getElementById("combined-save-status")?.remove();
   const team=combinedTeam(), slot=team.rounds[selectedRound-1], result=state.results.find(r=>r.teamId===team.teamId && r.disciplineId==="combined");
   const status={Pending:"در انتظار",Partial:"در حال تکمیل",Completed:"کامل"}[team.status];
   document.getElementById("result-fields").innerHTML=`<div class="combined-status"><b>وضعیت تیم: ${status}</b><span>هر ورزشکار جدا ذخیره می‌شود؛ میانگین تیم پس از ثبت هر دو نفر محاسبه می‌شود.</span></div>
     <div class="form-grid"><div class="field"><label for="combined-round">دور مسابقه</label><select id="combined-round" ${entryBusy ? "disabled" : ""}><option value="1" ${selectedRound===1 ? "selected" : ""}>دور ۱ — ورزشکار اول</option><option value="2" ${selectedRound===2 ? "selected" : ""}>دور ۲ — ورزشکار دوم</option></select></div>
     <div class="lane-card" id="lane-assignment"><div class="slot-badges">${slotBadge("number",slot.athleteNumber)}${slotBadge("round",selectedRound)}${slotBadge("heat",slot.heat)}${slotBadge("lane",slot.lane)}</div></div>
     <div class="field"><label for="athlete-primary">نام همین ورزشکار</label><input id="athlete-primary" value="${escapeAttr(slot.athlete.name)}"></div>
-    <div class="field"><label>زمان همین ورزشکار</label>${timePicker("primary")}</div>
+    <div class="field"><label>زمان همین ورزشکار</label>${timePicker("primary",true)}</div>
     <div class="field"><label for="penalty">جریمه همین ورزشکار (ثانیه)</label><input id="penalty" type="number" min="0" max="3600" step="0.01" value="${(slot.score?.penaltyMs ?? 0)/1000}"></div>
     <div class="field"><label for="judge">نام داور</label><input id="judge" value="${escapeAttr(slot.score?.judge ?? "")}"></div></div>
     <div class="actions">${slot.score ? `<button class="btn danger" id="delete-round">حذف رکورد همین ورزشکار</button>` : ""}${slot.score?.penaltyMs>0 ? `<button class="btn danger" id="delete-round-penalty">پاک‌کردن جریمه همین ورزشکار</button>` : ""}${result?.legacyTeamPenaltyMs>0 ? `<button class="btn danger" id="delete-legacy-penalty">پاک‌کردن جریمه مشترک قبلی</button>` : ""}</div>
@@ -314,10 +315,16 @@ function renderCombinedFields() {
   document.getElementById("delete-round-penalty")?.addEventListener("click",()=>deleteSafely("round_penalty",slot.score.id));
   document.getElementById("delete-legacy-penalty")?.addEventListener("click",()=>deleteSafely("result_penalty",result.id));
   document.getElementById("delete-round")?.addEventListener("click",()=>deleteSafely("round",slot.score.id));
-  document.querySelectorAll("#result-fields input,#result-fields select").forEach(input=>input.addEventListener("input",updateCombinedPreview));
+  document.querySelectorAll("#result-fields input,#result-fields select").forEach(input=>{input.addEventListener("input",updateCombinedPreview);input.addEventListener("change",updateCombinedPreview);});
   document.querySelectorAll(".time-part").forEach(part=>part.querySelector("label").htmlFor=part.querySelector("select").id);
   const save=document.getElementById("save-result");save.textContent="ذخیره مستقل همین ورزشکار";
-  save.disabled=entryBusy || result?.status==="approved" || !slot.lane;
+  const hint=document.createElement("p");hint.id="combined-save-status";hint.className="inline-status";hint.setAttribute("role","status");save.closest(".actions").before(hint);
+  if(result?.status==="approved") {
+    const reopen=document.createElement("button");reopen.id="reopen-combined";reopen.className="btn ghost";reopen.textContent="بازکردن نتیجه برای اصلاح";
+    reopen.onclick=async()=>{try{await api.reopenResult({resultId:result.id});notify("نتیجه برای اصلاح باز شد؛ اکنون فقط دور انتخاب‌شده را ذخیره کنید.");}catch(error){notify(error.message,true);}};
+    document.getElementById("result-fields").append(reopen);
+  }
+  if(slot.supplemental){const notice=document.createElement("p");notice.className="inline-status";notice.textContent="این تیم پس از شروع اضافه شده و نوبت تکمیلی مستقل دارد؛ شماره‌ها و لاین‌های قبلی تغییر نکرده‌اند.";document.getElementById("lane-assignment").append(notice);}
   document.getElementById("team").disabled=entryBusy; document.getElementById("discipline").disabled=entryBusy;
   updateCombinedPreview();
   help.decorate(document.getElementById("content"));
@@ -326,6 +333,10 @@ function renderCombinedFields() {
 function updateCombinedPreview() {
   const raw=readTime("primary"), penalty=Number(value("penalty"))*1000;
   document.getElementById("preview").textContent=raw>0 && Number.isFinite(penalty) ? formatTime(raw+penalty) : "زمان همین ورزشکار را کامل کنید";
+  const team=combinedTeam(),slot=team?.rounds[selectedRound-1],result=state.results.find(r=>r.teamId===team?.teamId&&r.disciplineId==="combined");
+  const gate=combinedSaveState({busy:entryBusy,approved:result?.status==="approved",lane:slot?.lane,rawMs:raw,penaltyMs:penalty});
+  document.getElementById("save-result").disabled=!gate.enabled;
+  const hint=document.getElementById("combined-save-status");if(hint)hint.textContent=gate.reason;
 }
 async function saveCombinedRound() {
   if (entryBusy) return;

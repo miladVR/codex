@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/miladVR/codex/imidro-staged-v4",
-  "title": "IMIDRO v4 canonical staged snapshot",
+  "$id": "https://github.com/miladVR/codex/imidro-staged-v5",
+  "title": "IMIDRO v5 canonical staged snapshot",
   "type": "object",
   "required": [
     "version",
@@ -9,11 +9,12 @@
     "athletes",
     "roundScores",
     "settings",
-    "combinedStartOrder"
+    "combinedStartOrder",
+    "combinedSlots"
   ],
   "properties": {
     "version": {
-      "const": 4
+      "const": 5
     },
     "teams": {
       "type": "array",
@@ -42,6 +43,12 @@
       "items": {
         "type": "integer",
         "minimum": 1
+      }
+    },
+    "combinedSlots": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/CombinedSlot"
       }
     }
   },
@@ -232,6 +239,51 @@
           "maximum": 100
         },
         "autoRotate": {
+          "type": "boolean"
+        }
+      }
+    },
+    "CombinedSlot": {
+      "type": "object",
+      "required": [
+        "teamId",
+        "round",
+        "drawOrder",
+        "athleteNumber",
+        "heat",
+        "lane",
+        "supplemental"
+      ],
+      "properties": {
+        "teamId": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "round": {
+          "enum": [
+            1,
+            2
+          ]
+        },
+        "drawOrder": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "athleteNumber": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "heat": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "lane": {
+          "enum": [
+            1,
+            2
+          ]
+        },
+        "supplemental": {
           "type": "boolean"
         }
       }
