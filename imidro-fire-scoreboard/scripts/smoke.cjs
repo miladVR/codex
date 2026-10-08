@@ -242,7 +242,7 @@ app.whenReady().then(async () => {
     display.reload();await waitFor(display,"document.querySelector('#table-title').textContent==='آبرسانی'");
     check('fully populated 22-team/44-athlete displays fit at 720p/1080p including paired times, penalties, long names and podium; time digits stay visible');
     display.setSize(1280,720);
-    await ui("await window.scoreboardAPI.setDisplay({mode:'individual'});document.querySelector('[data-view=entry]').click();const d=document.getElementById('discipline');d.value='combined';d.dispatchEvent(new Event('change',{bubbles:true}));const t=document.getElementById('team');t.value='1';t.dispatchEvent(new Event('change',{bubbles:true}));document.getElementById('athlete-primary').value='ورزشکار اول ۱';for(const [id,v] of [['primary-m','0'],['primary-s','30'],['primary-h','0']])document.getElementById(id).value=v;document.getElementById('save-result').click()");
+    await ui("await window.scoreboardAPI.setDisplay({mode:'individual'});document.querySelector('[data-view=entry]').click();const d=document.getElementById('discipline');d.value='combined';d.dispatchEvent(new Event('change',{bubbles:true}));const t=document.getElementById('team');t.value='1';t.dispatchEvent(new Event('change',{bubbles:true}));document.getElementById('athlete-primary').value='ورزشکار اول ۱';for(const [id,v] of [['primary-m','0'],['primary-s','30'],['primary-h','0']]){const n=document.getElementById(id);n.value=v;n.dispatchEvent(new Event('input',{bubbles:true}));}document.getElementById('save-result').click()");
     await waitFor(admin,"document.querySelector('#toast').textContent.includes('رتبه انفرادی')");
     assert.equal(store.view().combinedTeams.find(t=>t.teamId===1).status,'Partial');
     assert.equal(store.view().results.find(r=>r.teamId===1 && r.disciplineId==='combined').rawSecondaryMs,null);
@@ -259,7 +259,7 @@ app.whenReady().then(async () => {
     assert.equal(slot.athleteNumber,36);assert.equal(slot.lane,1); // reverse manual order puts team 1 at slot 14.
     assert.equal(await admin.webContents.executeJavaScript("document.querySelector('#lane-assignment [data-slot=lane] b').textContent"),"۱");
     assert.equal(await admin.webContents.executeJavaScript("document.querySelectorAll('#lane-assignment [data-slot]').length"),4);
-    await ui("for(const [id,v] of [['primary-m','0'],['primary-s','50'],['primary-h','0']])document.getElementById(id).value=v;document.getElementById('penalty').value='10';document.getElementById('save-result').click()");
+    await ui("for(const [id,v] of [['primary-m','0'],['primary-s','50'],['primary-h','0']]){const n=document.getElementById(id);n.value=v;n.dispatchEvent(new Event('input',{bubbles:true}));}document.getElementById('penalty').value='10';document.getElementById('penalty').dispatchEvent(new Event('input',{bubbles:true}));document.getElementById('save-result').click()");
     await waitFor(admin,"document.querySelector('#toast').textContent.includes('رتبه تیمی: 1')");
     assert.equal(store.view().itemLeaderboards.combined.find(r=>r.team.id===1).finalValue,45000);
     await ui("await window.scoreboardAPI.setDisplay({mode:'item',disciplineId:'combined'});await window.scoreboardAPI.saveRoundScore({teamId:2,round:2,rawMs:10000})");
