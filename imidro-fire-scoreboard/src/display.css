@@ -38,3 +38,4 @@ main{grid-template-columns:minmax(0,1fr)}header,.table-panel{min-width:0}
 .two-tables .individual-table th:nth-child(4),.two-tables .individual-table th:nth-child(5),.two-tables .individual-table th:nth-child(6){width:6%}
 .two-tables .individual-table th{font-size:11px;line-height:1;padding:3px 1px;padding-inline-end:13px}
 .two-tables .individual-table th .help-icon{width:12px;min-width:12px;height:12px;min-height:12px;font-size:10px;inset-inline-end:0}
+.item-table th:nth-child(3){width:8%}.item-table th:nth-child(5){width:8%}.item-table th:nth-child(6){width:14%}.item-table th:nth-child(7){width:10%}
