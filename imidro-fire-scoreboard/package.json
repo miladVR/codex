@@ -1,6 +1,6 @@
 {
   "name": "imidro-fire-scoreboard",
-  "version": "1.4.2",
+  "version": "1.4.3",
   "description": "Offline Windows scoring system for IMIDRO firefighters competitions",
   "main": "main.cjs",
   "author": "Milad Rabiei",

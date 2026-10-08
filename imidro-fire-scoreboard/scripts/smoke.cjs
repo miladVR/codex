@@ -47,7 +47,7 @@ app.whenReady().then(async () => {
     captureErrors(admin);
     controller = new DisplayController({ BrowserWindow, screen, getState: () => store.view(),
       onStatus: status => { if (!admin.isDestroyed()) admin.webContents.send("display:changed", status); } });
-    registerStateIPC({ ipcMain, getStore: () => store, getAdmin: () => admin, display: controller });
+    const {assertAdmin}=registerStateIPC({ ipcMain, getStore: () => store, getAdmin: () => admin, display: controller });
     const ui = async expression => {
       try { await admin.webContents.executeJavaScript(`(async () => { ${expression} })()`); }
       catch (error) { throw new Error(`Admin action failed: ${expression}: ${error?.message || JSON.stringify(error)}`); }
@@ -306,15 +306,47 @@ app.whenReady().then(async () => {
     await assert.rejects(display.webContents.executeJavaScript("window.scoreboardAPI.saveResult({teamId:1,disciplineId:'water',rawPrimaryMs:1000})"), /مدیریت/);
     // The deliberate rejection is caught by the caller, not an uncaught renderer error.
     check("public display cannot mutate scores through IPC");
-    let exportHandler, outputPath;
-    registerReports({ ipcMain: { handle: (_channel, handler) => exportHandler = handler },
-      dialog: { showSaveDialog: async () => ({ filePath: outputPath, canceled: false }) }, BrowserWindow, getStore: () => store, getWindow: () => admin });
+    let exportHandler, outputPath, reportStore=store;
+    registerReports({ ipcMain: { handle: (channel, handler) => {exportHandler = handler;ipcMain.handle(channel,handler);} },
+      dialog: { showSaveDialog: async () => ({ filePath: outputPath, canceled: false }) }, BrowserWindow, getStore: () => reportStore, getWindow: () => admin, assertAdmin });
     for (const type of ["standings", "draw"]) {
       outputPath = path.join(out, `${type}.pdf`);
-      await exportHandler({}, { type, drawId: store.view().draws[0].id });
+      await exportHandler({sender:admin.webContents}, { type, drawId: store.view().draws[0].id });
       assert.equal(fs.readFileSync(outputPath).subarray(0, 4).toString(), "%PDF");
     }
     check("official standings and manual draw export actual PDF files");
+    await ui("document.querySelector('[data-view=dashboard]').click();const s=document.getElementById('leaderboard-scope');s.value='individual';s.dispatchEvent(new Event('change',{bubbles:true}));");
+    outputPath=path.join(out,'individual-live.pdf');
+    await ui("document.getElementById('export-live-table').click()");
+    await waitFor(admin,"document.getElementById('toast').textContent==='فایل PDF ذخیره شد.'");
+    assert.equal(fs.readFileSync(outputPath).subarray(0,4).toString(),'%PDF');
+    assert.equal(await admin.webContents.executeJavaScript("document.getElementById('export-live-table').dataset.helpAttached"),'true');
+    await ui("document.getElementById('export-live-table').scrollIntoView({block:'center'});await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));");
+    fs.writeFileSync(path.join(out,'individual-pdf-button.png'),(await admin.webContents.capturePage()).toPNG());
+    for(const discipline of store.view().disciplines){
+      await ui(`const s=document.getElementById('leaderboard-scope');s.value=${JSON.stringify(discipline.id)};s.dispatchEvent(new Event('change',{bubbles:true}));document.getElementById('toast').textContent='';`);
+      outputPath=path.join(out,`item-${discipline.id}.pdf`);
+      await ui("document.getElementById('export-live-table').click()");
+      await waitFor(admin,"document.getElementById('toast').textContent==='فایل PDF ذخیره شد.'");
+      assert.equal(fs.readFileSync(outputPath).subarray(0,4).toString(),'%PDF');
+    }
+    await assert.rejects(display.webContents.executeJavaScript("window.scoreboardAPI.exportReport({type:'individual'})"),/مدیریت/);
+    check('real dashboard PDF button exports individual results and all five disciplines through admin-only IPC');
+    const rosterStore=new CompetitionStore(path.join(temporary,'report-roster'));
+    for(let id=1;id<=22;id++)rosterStore.addTeam({name:`منطقه ویژه صنایع فلزی و معدنی خلیج فارس ${id}`,athletePrimary:`ورزشکار اول آزمایشی ${id}`,athleteSecondary:`ورزشکار دوم آزمایشی ${id}`});
+    reportStore=rosterStore;outputPath=path.join(out,'individual-roster-44.pdf');
+    await exportHandler({sender:admin.webContents},{type:'individual'});
+    assert.equal(fs.readFileSync(outputPath).subarray(0,4).toString(),'%PDF');
+    reportStore=fullStore;outputPath=path.join(out,'individual-completed-44.pdf');
+    await exportHandler({sender:admin.webContents},{type:'individual'});
+    reportStore=store;
+    check('printable individual PDF covers all 44 long-named athletes both before competition and after all scores');
+    await ui("document.querySelector('[data-view=teams]').click()");
+    for(const id of ['team-athlete-1','team-athlete-2'])assert.ok(await admin.webContents.executeJavaScript(`document.querySelector('label[for=${id}]').textContent.includes('عملیات ترکیبی')`));
+    await ui("document.getElementById('team-athlete-1').scrollIntoView({block:'center'});await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));");
+    fs.writeFileSync(path.join(out,'combined-roster-labels.png'),(await admin.webContents.capturePage()).toPNG());
+    check('both roster name fields explicitly identify combined operations and their round');
+
     await ui("document.querySelector('[data-view=draw]').click()");
     assert.equal(await admin.webContents.executeJavaScript("document.getElementById('run-draw').disabled"),true);
     const beforeLockedHelp=store.view();

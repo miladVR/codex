@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "IMIDRO live printable ReportSnapshot",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "revision", "type", "disciplineId", "title", "notice", "columns", "rows"],
+  "properties": {
+    "version": {"const": 1},
+    "revision": {"type": "integer", "minimum": 0},
+    "type": {"enum": ["item", "individual"]},
+    "disciplineId": {"enum": ["scientific", "combined", "water", "rescue_skill", "height"]},
+    "title": {"type": "string"},
+    "notice": {"type": "string"},
+    "columns": {"type": "array", "minItems": 1, "items": {
+      "type": "object", "additionalProperties": false, "required": ["key", "label"],
+      "properties": {"key": {"type": "string"}, "label": {"type": "string"}, "width": {"type": "number", "exclusiveMinimum": 0, "maximum": 100}}
+    }},
+    "rows": {"type": "array", "items": {
+      "type": "object", "additionalProperties": false, "required": ["id", "status", "cells"],
+      "properties": {"id": {"type": "integer", "minimum": 1}, "status": {"enum": ["not_recorded", "draft", "approved"]}, "cells": {"type": "object", "additionalProperties": {"type": "string"}}}
+    }}
+  }
+}
