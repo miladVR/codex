@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/miladVR/codex/imidro-staged-v5",
-  "title": "IMIDRO v5 canonical staged snapshot",
+  "$id": "https://github.com/miladVR/codex/imidro-staged-v6",
+  "title": "IMIDRO v6 canonical competition snapshot",
   "type": "object",
   "required": [
     "version",
@@ -10,11 +10,13 @@
     "roundScores",
     "settings",
     "combinedStartOrder",
-    "combinedSlots"
+    "combinedSlots",
+    "participantProfiles",
+    "results"
   ],
   "properties": {
     "version": {
-      "const": 5
+      "const": 6
     },
     "teams": {
       "type": "array",
@@ -49,6 +51,18 @@
       "type": "array",
       "items": {
         "$ref": "#/$defs/CombinedSlot"
+      }
+    },
+    "participantProfiles": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ParticipantProfile"
+      }
+    },
+    "results": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Result"
       }
     }
   },
@@ -284,6 +298,141 @@
           ]
         },
         "supplemental": {
+          "type": "boolean"
+        }
+      }
+    },
+    "ParticipantProfile": {
+      "type": "object",
+      "required": [
+        "id",
+        "teamId",
+        "disciplineId",
+        "slot",
+        "name",
+        "photo"
+      ],
+      "properties": {
+        "id": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "teamId": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "disciplineId": {
+          "enum": [
+            "scientific",
+            "combined",
+            "water",
+            "rescue_skill",
+            "height"
+          ]
+        },
+        "slot": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 5
+        },
+        "name": {
+          "type": "string",
+          "maxLength": 100
+        },
+        "photo": {
+          "type": "string",
+          "description": "Empty or PNG/JPEG/WebP data URI; decoded payload <=256KiB"
+        }
+      }
+    },
+    "ScientificEntry": {
+      "type": "object",
+      "required": [
+        "slot",
+        "score",
+        "durationMs"
+      ],
+      "properties": {
+        "slot": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 5
+        },
+        "score": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "durationMs": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1,
+          "maximum": 5999990
+        }
+      }
+    },
+    "Result": {
+      "type": "object",
+      "required": [
+        "id",
+        "teamId",
+        "disciplineId",
+        "status"
+      ],
+      "properties": {
+        "id": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "teamId": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "disciplineId": {
+          "enum": [
+            "scientific",
+            "combined",
+            "water",
+            "rescue_skill",
+            "height"
+          ]
+        },
+        "status": {
+          "enum": [
+            "draft",
+            "approved"
+          ]
+        },
+        "completionStatus": {
+          "enum": [
+            "Pending",
+            "Partial",
+            "Completed"
+          ]
+        },
+        "scientificEntries": {
+          "type": "array",
+          "maxItems": 5,
+          "items": {
+            "$ref": "#/$defs/ScientificEntry"
+          }
+        },
+        "scientificScore": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 500
+        },
+        "scientificSubtotal": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 500
+        },
+        "legacyScientific": {
           "type": "boolean"
         }
       }

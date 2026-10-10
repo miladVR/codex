@@ -21,13 +21,7 @@ else {
       if (adminWindow && !adminWindow.isDestroyed()) adminWindow.webContents.send("display:changed", status);
     } });
     const { assertAdmin } = registerStateIPC({ ipcMain, getStore: () => store, getAdmin: () => adminWindow, display });
-    ipcMain.handle("data:backup", async event => {
-      assertAdmin(event);
-      const result = await dialog.showSaveDialog(adminWindow, { title: "ذخیره نسخه پشتیبان",
-        defaultPath: `imidro-fire-backup-${new Date().toISOString().slice(0, 10)}.json`, filters: [{ name: "JSON", extensions: ["json"] }] });
-      if (result.canceled || !result.filePath) return { canceled: true };
-      store.exportSnapshot(result.filePath); return { canceled: false, filePath: result.filePath };
-    });
+    require("./backup-controller.cjs").registerBackups({ipcMain,dialog,getStore:()=>store,getWindow:()=>adminWindow,assertAdmin});
     require("./report.cjs").registerReports({ ipcMain, dialog, BrowserWindow, getStore: () => store, getWindow: () => adminWindow, assertAdmin });
     createAdminWindow();
     app.on("activate", () => { if (!adminWindow) createAdminWindow(); });

@@ -41,3 +41,5 @@ main{grid-template-columns:minmax(0,1fr)}header,.table-panel{min-width:0}
 .item-table th:nth-child(3){width:8%}.item-table th:nth-child(5){width:8%}.item-table th:nth-child(6){width:14%}.item-table th:nth-child(7){width:10%}
 
 .draw-ticket div>small:first-child{display:none}
+
+.athlete-photo{width:26px;height:26px;object-fit:cover;border-radius:5px;float:right;margin-left:5px}.individual-table .name-viewport{width:calc(100% - 31px)}

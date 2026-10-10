@@ -3,6 +3,10 @@
 const { contextBridge, ipcRenderer } = require("electron");
 
 contextBridge.exposeInMainWorld("scoreboardAPI", {
+  saveScientificScore:payload=>ipcRenderer.invoke("scientific:save",payload),
+  saveParticipant:payload=>ipcRenderer.invoke("participant:save",payload),
+  prepareRestore:()=>ipcRenderer.invoke("data:restore-prepare"),
+  confirmRestore:payload=>ipcRenderer.invoke("data:restore-confirm",payload),
   saveRoundScore:payload => ipcRenderer.invoke("round:save",payload),
   prepareDeletion:payload => ipcRenderer.invoke("delete:prepare",payload),
   confirmDeletion:payload => ipcRenderer.invoke("delete:confirm",payload),

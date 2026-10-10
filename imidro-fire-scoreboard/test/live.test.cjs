@@ -94,7 +94,7 @@ test("v2 draw positions migrate without losing active display selection", t => {
   legacy.draws.forEach(draw => { delete draw.method; draw.entries.forEach(e => delete e.drawOrder); });
   fs.writeFileSync(store.dataPath, JSON.stringify(legacy));
   const restored = new CompetitionStore(directory).view();
-  assert.equal(restored.version, 5);
+  assert.equal(restored.version, 6);
   assert.deepEqual(restored.draws[0].entries.map(e => e.drawOrder), [1, 2, 3]);
   assert.equal(restored.settings.displayDrawId, view.draws[0].id);
 });
