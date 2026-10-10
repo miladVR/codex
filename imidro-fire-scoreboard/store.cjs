@@ -5,6 +5,8 @@ const path = require("node:path");
 const { randomInt, randomUUID } = require("node:crypto");
 const ORGANIZATION = "امور آموزش و توسعه شایستگی مجتمع مس سرچشمه رفسنجان";
 const { startOrder, assignment, completion, individualLeaderboard, migrateCombined, ensureSchedule, freezeSchedule } = require("./combined.cjs");
+const { counts, migrateParticipants, validatePhoto, syncScientific } = require("./participants.cjs");
+const { validateSnapshot } = require("./snapshot.cjs");
 const { validateLogo } = require("./branding.cjs");
 const { buildStandings, buildItemLeaderboard } = require("./scoring.cjs");
 
@@ -25,10 +27,12 @@ class CompetitionStore {
     fs.rmSync(this.resetBackupPath, { recursive: true, force: true, maxRetries: 3, retryDelay: 100 });
     fs.mkdirSync(this.backupPath, { recursive: true });
     this.deletionChallenges = new Map();
+    this.restoreChallenges = new Map();
     this.state = this.#read();
   }
 
   view() {
+    migrateParticipants(this.state);
     const standings = buildStandings(this.state);
     const liveStandings = buildStandings(this.state, { includeDrafts: true });
     const itemLeaderboards = Object.fromEntries(this.state.disciplines.map(item => [item.id, buildItemLeaderboard(this.state, item, { includeDrafts: true })]));
@@ -59,6 +63,7 @@ class CompetitionStore {
     ensureSchedule(this.state);
     for (const round of [1,2]) this.state.athletes.push({id:this.state.nextAthleteId++,teamId:team.id,round,
       name:clean(payload[round===1?"athletePrimary":"athleteSecondary"],100)});
+    migrateParticipants(this.state);
     this.#audit("create_team", `تیم «${name}» افزوده شد.`);
     this.#persist();
     return this.view();
@@ -82,13 +87,14 @@ class CompetitionStore {
     const now = new Date().toISOString();
     const existing = this.state.results.find((result) => result.teamId === teamId && result.disciplineId === discipline.id);
     if (existing?.status === "approved") throw new Error("ابتدا نتیجه تأییدشده را برای اصلاح باز کنید.");
+    if(discipline.mode==="score" && existing?.scientificEntries)throw Error("برای اصلاح آزمون پنج‌نفره از ثبت مستقل هر شرکت‌کننده استفاده کنید.");
     for (const field of ["athletePrimary","athleteSecondary"]) if (existing?.[field] && payload[field] === "") throw new Error("پاک‌کردن نام ورزشکار باید با حذف دومرحله‌ای انجام شود.");
     if (existing?.penaltyMs>0 && Number(payload.penaltyMs ?? 0)===0) throw new Error("پاک‌کردن جریمه باید با حذف دومرحله‌ای انجام شود.");
     const record = {
       id: existing?.id ?? this.state.nextResultId++,
       teamId,
       disciplineId: discipline.id,
-      athletePrimary: clean(payload.athletePrimary ?? existing?.athletePrimary, 100),
+      athletePrimary: clean(payload.athletePrimary ?? existing?.athletePrimary ?? this.state.participantProfiles.find(p=>p.teamId===teamId && p.disciplineId===discipline.id)?.name, 100),
       athleteSecondary: clean(payload.athleteSecondary ?? existing?.athleteSecondary, 100),
       rawPrimaryMs,
       rawSecondaryMs,
@@ -103,6 +109,9 @@ class CompetitionStore {
       updatedAt: now
     };
     if (existing) Object.assign(existing, record); else this.state.results.push(record);
+    const profile=this.state.participantProfiles.find(p=>p.teamId===teamId && p.disciplineId===discipline.id && p.slot===1);
+    if(profile && discipline.mode!=="score") {profile.name=record.athletePrimary;this.state.participantProfiles.find(p=>p.teamId===teamId && p.disciplineId===discipline.id && p.slot===2).name=record.athleteSecondary;}
+    if(discipline.mode==="score") record.legacyScientific=true;
     this.#audit("save_result", `نتیجه ${discipline.name} برای تیم ${this.#teamName(teamId)} ذخیره شد.`);
     this.#persist();
     return this.view();
@@ -110,7 +119,7 @@ class CompetitionStore {
 
   approveResult(payload) {
     const result = this.#result(payload.resultId);
-    if (result.disciplineId === "combined" && result.completionStatus !== "Completed") throw new Error("تأیید تیمی فقط پس از ثبت هر دو ورزشکار مجاز است.");
+    if ((result.disciplineId === "combined" || result.disciplineId === "scientific" && !result.legacyScientific) && result.completionStatus !== "Completed") throw new Error("تأیید تیمی فقط پس از ثبت همه نفرات — هر دو ورزشکار ترکیبی یا پنج شرکت‌کننده علمی — مجاز است.");
     if (result.status === "approved") return this.view();
     result.status = "approved";
     result.approvedBy = clean(payload.approvedBy || "سرداور", 100);
@@ -150,6 +159,7 @@ class CompetitionStore {
     if (athlete.name && !name) throw new Error("پاک‌کردن نام ورزشکار باید از حذف دومرحله‌ای انجام شود.");
     freezeSchedule(this.state);
     athlete.name=name;
+    this.state.participantProfiles.find(p=>p.teamId===teamId && p.disciplineId==="combined" && p.slot===round).name=name;
     this.#writeRound(teamId,round,rawMs,penaltyMs,payload);
     this.#syncCombined(teamId);
     this.#audit("save_round",`رکورد ورزشکار دور ${round} تیم ${this.#teamName(teamId)} در لاین ${slot.lane} ثبت شد.`);
@@ -171,6 +181,7 @@ class CompetitionStore {
       const athlete=this.state.athletes.find(a=>a.teamId===teamId && a.round===round);
       const supplied=payload[round===1?"athletePrimary":"athleteSecondary"];
       if (supplied) athlete.name=clean(supplied,100);
+      this.state.participantProfiles.find(p=>p.teamId===teamId && p.disciplineId==="combined" && p.slot===round).name=athlete.name;
       this.#writeRound(teamId,round,round===1?first:second,0,payload);
     }
     this.#syncCombined(teamId,legacyPenalty);
@@ -202,13 +213,93 @@ class CompetitionStore {
     if (old) Object.assign(old,record); else this.state.results.push(record);
   }
 
+  saveParticipant(payload) {
+    const profile=this.state.participantProfiles.find(p=>p.id===integer(payload.id));
+    if(!profile)throw Error("ورزشکار پیدا نشد.");
+    this.#checkRevision(payload);
+    const result=this.state.results.find(r=>r.teamId===profile.teamId && r.disciplineId===profile.disciplineId);
+    if(result?.status==="approved")throw Error("ابتدا نتیجه تأییدشده را برای اصلاح باز کنید.");
+    const name=payload.name===undefined ? profile.name : clean(payload.name,100);
+    const photo=payload.photo===undefined ? profile.photo : validatePhoto(payload.photo);
+    if(profile.name&&!name || profile.photo&&!photo)throw Error("پاک‌کردن نام یا عکس باید با تأیید دومرحله‌ای انجام شود.");
+    profile.name=name;profile.photo=photo;
+    if(profile.disciplineId==="combined") {
+      this.state.athletes.find(a=>a.teamId===profile.teamId&&a.round===profile.slot).name=name;
+      if(result){result[profile.slot===1?"athletePrimary":"athleteSecondary"]=name;}
+    } else if(profile.disciplineId!=="scientific" && result)result[profile.slot===1?"athletePrimary":"athleteSecondary"]=name;
+    this.#audit("save_participant",`مشخصات ورزشکار ${profile.slot} تیم ${this.#teamName(profile.teamId)} به‌روز شد.`);
+    this.#persist();return this.view();
+  }
+
+  saveScientificScore(payload) {
+    this.#checkRevision(payload);
+    const teamId=integer(payload.teamId),slot=integer(payload.slot);
+    const profile=this.state.participantProfiles.find(p=>p.teamId===teamId&&p.disciplineId==="scientific"&&p.slot===slot);
+    if(!profile)throw Error("تیم یا شماره شرکت‌کننده آزمون معتبر نیست.");
+    const old=this.state.results.find(r=>r.teamId===teamId&&r.disciplineId==="scientific");
+    if(old?.status==="approved")throw Error("ابتدا نتیجه تأییدشده را برای اصلاح باز کنید.");
+    if(payload.score===null||payload.score===undefined||payload.score==="")throw Error("امتیاز همین شرکت‌کننده را وارد کنید.");
+    const score=boundedNumber(payload.score,0,100,"امتیاز علمی هر نفر"),durationMs=optionalDuration(payload.durationMs);
+    if(durationMs===0)throw Error("زمان پاسخ‌گویی نمی‌تواند صفر باشد.");
+    const name=payload.name===undefined?profile.name:clean(payload.name,100);
+    if(profile.name&&!name)throw Error("پاک‌کردن نام باید با تأیید دومرحله‌ای انجام شود.");
+    if(!name)throw Error("نام شرکت‌کننده آزمون علمی الزامی است.");
+    const result=old||{id:this.state.nextResultId++,teamId,disciplineId:"scientific",rawPrimaryMs:null,rawSecondaryMs:null,penaltyMs:0,athletePrimary:"",athleteSecondary:""};
+    const entries=structuredClone(result.scientificEntries||[]),entry=entries.find(e=>e.slot===slot);
+    if(entry?.durationMs!=null && durationMs==null)throw Error("پاک‌کردن زمان باید با حذف دومرحله‌ای رکورد انجام شود.");
+    const updated={slot,score:Math.round(score*100)/100,durationMs};
+    if(entry)Object.assign(entry,updated);else entries.push(updated);
+    profile.name=name;result.scientificEntries=entries.sort((a,b)=>a.slot-b.slot);syncScientific(result);
+    Object.assign(result,{status:"draft",approvedBy:"",approvedAt:null,note:clean(payload.note,1000),judge:clean(payload.judge||"داور مسابقه",100),updatedAt:new Date().toISOString()});
+    if(!old)this.state.results.push(result);
+    this.#audit("save_scientific",`امتیاز نفر ${slot} آزمون علمی تیم ${this.#teamName(teamId)} ثبت شد.`);
+    this.#persist();return this.view();
+  }
+
+  #checkRevision(payload){if(payload.expectedRevision!=null&&payload.expectedRevision!==this.state.revision)throw Error("داده تغییر کرده است؛ فرم را دوباره بررسی کنید.");}
+
+  prepareRestore(sourcePath) {
+    if(fs.statSync(sourcePath).size>128*1024*1024)throw Error("فایل پشتیبان بیش از ۱۲۸ مگابایت است.");
+    let candidate;
+    try{candidate=validateSnapshot(JSON.parse(fs.readFileSync(sourcePath,"utf8")));}catch(error){throw Error(`فایل پشتیبان معتبر نیست: ${error.message}`);}
+    this.restoreChallenges.clear();
+    const token=randomUUID(),now=Date.now();
+    this.restoreChallenges.set(token,{candidate,revision:this.state.revision,readyAt:now+2000,expiresAt:now+120000});
+    return {token,waitMs:2000,summary:`بازیابی ${candidate.teams.length} تیم، ${candidate.results.length} نتیجه و ${candidate.roundScores.length} رکورد عملیات ترکیبی؛ تمام تنظیمات، عکس‌ها و قرعه‌ها جایگزین داده فعلی می‌شوند. یک پشتیبان از داده فعلی پیش از جایگزینی حفظ می‌شود.`};
+  }
+
+  confirmRestore(payload) {
+    const review=this.restoreChallenges.get(payload.token);
+    if(!review||Date.now()>review.expiresAt)throw Error("تأیید بازیابی منقضی شده است.");
+    if(Date.now()<review.readyAt||payload.confirmation!=="تایید")throw Error("دو ثانیه صبر کنید و کلمه تایید را وارد کنید.");
+    this.#checkRevision({expectedRevision:review.revision});
+    const previous=this.state;
+    const backup=path.join(this.backupPath,`before-restore-${Date.now()}-${randomUUID()}.json`);
+    fs.writeFileSync(backup,JSON.stringify(previous,null,2),"utf8");
+    this.state=structuredClone(review.candidate);this.state.revision=previous.revision;this.state.resetId=randomUUID();
+    this.#audit("restore_backup",`نسخه پشتیبان شامل ${this.state.teams.length} تیم بازیابی شد.`);
+    const temp=`${this.dataPath}.tmp`,automatic=path.join(this.backupPath,`backup-${new Date().toISOString().replace(/[:.]/g,"-")}.json`);
+    this.state.revision+=1;
+    try {
+      fs.writeFileSync(temp,JSON.stringify(this.state,null,2),"utf8");
+      fs.copyFileSync(temp,automatic);
+      fs.renameSync(temp,this.dataPath);
+    } catch(error) {
+      fs.rmSync(temp,{force:true});fs.rmSync(automatic,{force:true});this.state=previous;throw error;
+    }
+    this.restoreChallenges.clear();this.deletionChallenges.clear();return this.view();
+  }
+
   prepareDeletion(payload) {
     const kind=payload.kind, id=kind==="reset" ? null : integer(payload.id); let summary;
     if (kind==="reset") {
-      summary=`پاک‌سازی کامل و غیرقابل برگشت: ${this.state.teams.length} تیم، ${this.state.athletes.length} ورزشکار، ${this.state.results.length} نتیجه، ${this.state.roundScores.length} رکورد دور، ${this.state.draws.length} قرعه و ${this.state.audits.length} سابقه؛ همه زمان‌ها و جریمه‌ها، لوگوهای سفارشی و پشتیبان‌های خودکار داخلی پاک می‌شوند. عنوان، تاریخ، محل، پیام و صدا به تنظیمات اولیه برمی‌گردند. فایل‌های PDF و پشتیبان‌هایی که خودتان بیرون از برنامه ذخیره کرده‌اید پاک نمی‌شوند.`;
+      summary=`پاک‌سازی کامل و غیرقابل برگشت: ${this.state.teams.length} تیم، ${this.state.participantProfiles.length} جایگاه ورزشکار در رشته‌ها، ${this.state.results.length} نتیجه، ${this.state.roundScores.length} رکورد دور، ${this.state.draws.length} قرعه و ${this.state.audits.length} سابقه؛ همه زمان‌ها و جریمه‌ها، لوگوهای سفارشی و پشتیبان‌های خودکار داخلی پاک می‌شوند. عنوان، تاریخ، محل، پیام و صدا به تنظیمات اولیه برمی‌گردند. فایل‌های PDF و پشتیبان‌هایی که خودتان بیرون از برنامه ذخیره کرده‌اید پاک نمی‌شوند.`;
+    } else if (kind==="participant" || kind==="participant_photo") {
+      const profile=this.state.participantProfiles.find(p=>p.id===id); if(!profile) throw Error("ورزشکار پیدا نشد.");
+      summary=`${kind==="participant_photo" ? "فقط عکس" : "نام، عکس و رکورد"} ورزشکار ${profile.name || profile.slot} تیم ${this.#teamName(profile.teamId)} در ${this.state.disciplines.find(d=>d.id===profile.disciplineId).name} پاک می‌شود.`;
     } else if (kind==="team") {
       const team=this.state.teams.find(t=>t.id===id); if (!team) throw new Error("تیم پیدا نشد.");
-      summary=`تیم ${team.name}؛ دو ورزشکار و ${this.state.results.filter(r=>r.teamId===id).length} نتیجه و تمام رکوردهای انفرادی آن حذف می‌شوند.`;
+      summary=`تیم ${team.name}؛ تمام ورزشکاران و ${this.state.results.filter(r=>r.teamId===id).length} نتیجه و تمام رکوردهای انفرادی آن حذف می‌شوند.`;
     } else if (kind==="result") {
       const result=this.#result(id);
       summary=`ورزشکاران ${result.athletePrimary || "—"} / ${result.athleteSecondary || "—"}؛ نتیجه ${this.state.disciplines.find(d=>d.id===result.disciplineId).name} تیم ${this.#teamName(result.teamId)}؛ زمان‌ها ${result.rawPrimaryMs ?? "—"} / ${result.rawSecondaryMs ?? "—"} میلی‌ثانیه؛ جریمه ${result.penaltyMs}؛ نمره ${result.scientificScore ?? "—"}`;
@@ -240,7 +331,22 @@ class CompetitionStore {
     if (challenge.revision!==this.state.revision) throw new Error("داده از زمان بررسی تغییر کرده است؛ حذف را دوباره بررسی کنید.");
     const {kind,id}=challenge;
     if (kind==="reset") return this.#resetAll();
-    if (kind==="team") {
+    if (kind==="participant" || kind==="participant_photo") {
+      const p=this.state.participantProfiles.find(p=>p.id===id); p.photo="";
+      if(kind==="participant") {
+        p.name="";
+        const result=this.state.results.find(r=>r.teamId===p.teamId && r.disciplineId===p.disciplineId);
+        if(p.disciplineId==="combined") {
+          const athlete=this.state.athletes.find(a=>a.teamId===p.teamId && a.round===p.slot);athlete.name="";
+          this.state.roundScores=this.state.roundScores.filter(r=>r.athleteId!==athlete.id);this.#syncCombined(p.teamId);
+        } else if(p.disciplineId==="scientific" && result?.scientificEntries) {
+          result.scientificEntries=result.scientificEntries.filter(e=>e.slot!==p.slot);syncScientific(result);
+          if(!result.scientificEntries.length)this.state.results=this.state.results.filter(r=>r!==result);
+          else {result.status="draft";result.approvedAt=null;result.approvedBy="";}
+        } else if(p.disciplineId!=="scientific")this.state.results=this.state.results.filter(r=>r!==result);
+      }
+    } else if (kind==="team") {
+      this.state.participantProfiles=this.state.participantProfiles.filter(p=>p.teamId!==id);
       this.state.teams=this.state.teams.filter(t=>t.id!==id);
       this.state.athletes=this.state.athletes.filter(a=>a.teamId!==id);
       this.state.roundScores=this.state.roundScores.filter(s=>s.teamId!==id);
@@ -259,7 +365,7 @@ class CompetitionStore {
     } else {
       const score=kind==="round" ? this.state.roundScores.find(s=>s.id===id) : null;
       const athlete=this.state.athletes.find(a=>a.id===(score?.athleteId ?? id));
-      if (kind==="athlete") athlete.name="";
+      if (kind==="athlete") {athlete.name="";const p=this.state.participantProfiles.find(p=>p.teamId===athlete.teamId && p.disciplineId==="combined" && p.slot===athlete.round);p.name="";p.photo="";}
       this.state.roundScores=this.state.roundScores.filter(s=>s.athleteId!==athlete.id);
       this.#syncCombined(athlete.teamId);
     }
@@ -287,7 +393,7 @@ class CompetitionStore {
       throw error;
     }
     this.state=fresh;
-    this.deletionChallenges.clear();
+    this.deletionChallenges.clear();this.restoreChallenges.clear();
     fs.rmSync(this.resetBackupPath,{recursive:true,force:true,maxRetries:3,retryDelay:100});
     return this.view();
   }
@@ -394,7 +500,8 @@ class CompetitionStore {
         parsed.settings.displayMessage = "نتایج زنده تا تأیید سرداور موقت هستند؛ نوبت اجرا با رتبه متفاوت است.";
       if(!["paged","all"].includes(parsed.settings.displayLayout)) parsed.settings.displayLayout="paged";
       migrateCombined(parsed);
-      parsed.version = 5;
+      migrateParticipants(parsed);
+      parsed.version = 6;
       parsed.organizationCredit = ORGANIZATION;
       return parsed;
     } catch (error) {
@@ -408,7 +515,8 @@ class CompetitionStore {
 
   #initialState() {
     return {
-        version: 5,
+        version: 6,
+        participantProfiles:[],nextParticipantId:1,
         revision: 0,
         organizationCredit: ORGANIZATION,
         draws: [], athletes:[],roundScores:[],combinedStartOrder:[],combinedSlots:[],nextAthleteId:1,nextRoundScoreId:1,

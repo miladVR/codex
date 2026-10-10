@@ -148,7 +148,7 @@ function renderPodium() {
 function rankBadge(rank) { return `<span class="rank ${rank === 1 ? "first" : ""}">${number(rank)}</span>`; }
 function turnBadge(order) { return `<span class="turn" aria-label="نوبت اجرا ${number(order)}">${number(order)}</span>`; }
 function renderStandings() {
-  renderTables("overall-table",`<th>رتبه امتیازی</th><th>تیم</th><th>نوبت عمومی</th>${state.disciplines.map(item => `<th>${escapeHtml(item.name)}</th>`).join("")}<th>مجموع رتبه</th><th>تکمیل</th>`,visibleRows(),row=>`<tr data-team-id="${row.team.id}" class="${updatedTeams.has(row.team.id)?"updated":""}"><td>${rankBadge(row.officialRank)}</td><td class="team" title="${escapeHtml(row.team.name)}">${fullName(row.team.name)}</td><td>${turnBadge(row.drawOrder)}</td>${state.disciplines.map(item=>`<td>${number(row.disciplineRanks[item.id])}</td>`).join("")}<td class="total">${number(row.completed?row.total:null)}</td><td class="complete">${number(row.completed)}/${number(state.disciplines.length)}</td></tr>`);
+  renderTables("overall-table",`<th>رتبه امتیازی</th><th>تیم</th><th>نوبت عمومی</th>${state.disciplines.map(item => `<th>${escapeHtml(item.name)}</th>`).join("")}<th>مجموع رتبه</th><th>مراحل انجام‌شده</th>`,visibleRows(),row=>`<tr data-team-id="${row.team.id}" class="${updatedTeams.has(row.team.id)?"updated":""}"><td>${rankBadge(row.officialRank)}</td><td class="team" title="${escapeHtml(row.team.name)}">${fullName(row.team.name)}</td><td>${turnBadge(row.drawOrder)}</td>${state.disciplines.map(item=>`<td>${number(row.disciplineRanks[item.id])}</td>`).join("")}<td class="total">${number(row.completed?row.total:null)}</td><td class="complete">${number(row.completed)}/${number(state.disciplines.length)}</td></tr>`);
 }
 function renderItem() {
   const item = currentItem();
@@ -159,7 +159,7 @@ function renderItem() {
   });
 }
 function renderIndividual() {
-  renderTables("individual-table",'<th>رتبه</th><th>ورزشکار / تیم</th><th>شماره ورزشکار</th><th>دور</th><th>گروه</th><th>لاین</th><th>زمان خام</th><th>جریمه</th><th>زمان نهایی</th>',visibleRows(),row=>`<tr data-team-id="${row.team.id}" data-athlete-id="${row.athlete.id}" class="${updatedTeams.has(row.team.id)?"updated":""}"><td>${rankBadge(row.rank)}</td><td class="team" title="${escapeHtml(row.athlete.name||`ورزشکار دور ${row.athlete.round}`)} — ${escapeHtml(row.team.name)}">${fullName(`${row.athlete.name||`ورزشکار دور ${row.athlete.round}`} · ${row.team.name}`)}</td><td>${slotBadge("number",row.athleteNumber)}</td><td>${slotBadge("round",row.athlete.round)}</td><td>${slotBadge("heat",row.heat)}</td><td>${slotBadge("lane",row.lane)}</td><td class="record">${formatTime(row.result?.rawMs)}</td><td>${row.result?number(row.result.penaltyMs/1000):"—"}</td><td class="total record">${formatTime(row.finalValue)}</td></tr>`);
+  renderTables("individual-table",'<th>رتبه</th><th>ورزشکار / تیم</th><th>شماره ورزشکار</th><th>دور</th><th>گروه</th><th>لاین</th><th>زمان خام</th><th>جریمه</th><th>زمان نهایی</th>',visibleRows(),row=>`<tr data-team-id="${row.team.id}" data-athlete-id="${row.athlete.id}" class="${updatedTeams.has(row.team.id)?"updated":""}"><td>${rankBadge(row.rank)}</td><td class="team" title="${escapeHtml(row.athlete.name||`ورزشکار دور ${row.athlete.round}`)} — ${escapeHtml(row.team.name)}">${athletePortrait(row)}${fullName(`${row.athlete.name||`ورزشکار دور ${row.athlete.round}`} · ${row.team.name}`)}</td><td>${slotBadge("number",row.athleteNumber)}</td><td>${slotBadge("round",row.athlete.round)}</td><td>${slotBadge("heat",row.heat)}</td><td>${slotBadge("lane",row.lane)}</td><td class="record">${formatTime(row.result?.rawMs)}</td><td>${row.result?number(row.result.penaltyMs/1000):"—"}</td><td class="total record">${formatTime(row.finalValue)}</td></tr>`);
 }
 function renderDraw() {
   const capacity=plan().capacity;
@@ -180,3 +180,5 @@ function tick() {
 tick(); setInterval(tick, 1000);
 
 document.fonts.ready.then(()=>{if(state)render();});
+
+function athletePortrait(row){const p=state.participantProfiles.find(p=>p.teamId===row.team.id&&p.disciplineId==="combined"&&p.slot===row.athlete.round);return `<img class="athlete-photo" src="${escapeHtml(p?.photo||"../assets/athlete-placeholder.svg")}" alt="عکس ورزشکار">`;}

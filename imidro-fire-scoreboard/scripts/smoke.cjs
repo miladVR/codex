@@ -6,6 +6,7 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const { CompetitionStore } = require("../store.cjs");
+const {registerBackups}=require("../backup-controller.cjs");
 const { registerReports } = require("../report.cjs");
 const { DisplayController, registerStateIPC } = require("../display-controller.cjs");
 const root = path.join(__dirname, "..");
@@ -48,6 +49,8 @@ app.whenReady().then(async () => {
     controller = new DisplayController({ BrowserWindow, screen, getState: () => store.view(),
       onStatus: status => { if (!admin.isDestroyed()) admin.webContents.send("display:changed", status); } });
     const {assertAdmin}=registerStateIPC({ ipcMain, getStore: () => store, getAdmin: () => admin, display: controller });
+    let restoreSource;
+    registerBackups({ipcMain,dialog:{showSaveDialog:async()=>({canceled:true}),showOpenDialog:async()=>({canceled:false,filePaths:[restoreSource]})},getStore:()=>store,getWindow:()=>admin,assertAdmin});
     const ui = async expression => {
       try { await admin.webContents.executeJavaScript(`(async () => { ${expression} })()`); }
       catch (error) { throw new Error(`Admin action failed: ${expression}: ${error?.message || JSON.stringify(error)}`); }
@@ -55,7 +58,7 @@ app.whenReady().then(async () => {
     await admin.loadFile(path.join(root, "src/index.html"));
     await waitFor(admin, "Boolean(document.querySelector('#leaderboard-scope'))");
     const beforeHelp=store.view();
-    for(const view of ["dashboard","teams","draw","entry","approvals","settings","audit","guide"]){
+    for(const view of ["dashboard","teams","draw","entry","approvals","settings","reports","audit","guide"]){
       await ui(`document.querySelector('[data-view=${view}]').click()`);
       const uncovered=await admin.webContents.executeJavaScript("Array.from(document.querySelectorAll('#content button:not(.help-icon),#content input,#content select,#content textarea')).filter(n=>!n.dataset.helpAttached).map(n=>n.id||n.dataset.action||n.dataset.deleteKind)");
       assert.deepEqual(uncovered,[],`Missing contextual help in ${view}`);
@@ -75,7 +78,7 @@ app.whenReady().then(async () => {
     await ui("document.getElementById('context-help-close').click()");
     assert.equal(await admin.webContents.executeJavaScript("document.activeElement.dataset.helpFor"),'penalty');
     assert.deepEqual(store.view(),beforeHelp);
-    check("contextual help covers all eight admin views and five discipline forms, preserves draft fields and never changes stored data");
+    check("contextual help covers all nine admin views and five discipline forms, preserves draft fields and never changes stored data");
     await ui("document.querySelector('[data-view=draw]').click()");
     await waitFor(admin, "Boolean(document.querySelector('#save-manual-draw'))");
     await ui("document.querySelectorAll('[data-order-team]').forEach(input => { input.value = 15 - Number(input.dataset.orderTeam); input.dispatchEvent(new Event('input',{bubbles:true})); }); document.querySelector('#save-manual-draw').click()");
@@ -317,7 +320,7 @@ app.whenReady().then(async () => {
     check("official standings and manual draw export actual PDF files");
     await ui("document.querySelector('[data-view=dashboard]').click();const s=document.getElementById('leaderboard-scope');s.value='individual';s.dispatchEvent(new Event('change',{bubbles:true}));");
     outputPath=path.join(out,'individual-live.pdf');
-    await ui("document.getElementById('export-live-table').click()");
+    await ui("document.getElementById('export-live-table').click();document.getElementById('report-create').click()");
     await waitFor(admin,"document.getElementById('toast').textContent==='فایل PDF ذخیره شد.'");
     assert.equal(fs.readFileSync(outputPath).subarray(0,4).toString(),'%PDF');
     assert.equal(await admin.webContents.executeJavaScript("document.getElementById('export-live-table').dataset.helpAttached"),'true');
@@ -326,7 +329,7 @@ app.whenReady().then(async () => {
     for(const discipline of store.view().disciplines){
       await ui(`const s=document.getElementById('leaderboard-scope');s.value=${JSON.stringify(discipline.id)};s.dispatchEvent(new Event('change',{bubbles:true}));document.getElementById('toast').textContent='';`);
       outputPath=path.join(out,`item-${discipline.id}.pdf`);
-      await ui("document.getElementById('export-live-table').click()");
+      await ui("document.getElementById('export-live-table').click();document.getElementById('report-create').click()");
       await waitFor(admin,"document.getElementById('toast').textContent==='فایل PDF ذخیره شد.'");
       assert.equal(fs.readFileSync(outputPath).subarray(0,4).toString(),'%PDF');
     }
@@ -341,6 +344,39 @@ app.whenReady().then(async () => {
     await exportHandler({sender:admin.webContents},{type:'individual'});
     reportStore=store;
     check('printable individual PDF covers all 44 long-named athletes both before competition and after all scores');
+    await ui("document.querySelector('[data-view=entry]').click();const d=document.getElementById('discipline');d.value='scientific';d.dispatchEvent(new Event('change',{bubbles:true}));const t=document.getElementById('team');t.value='14';t.dispatchEvent(new Event('change',{bubbles:true}));");
+    for(let slot=1;slot<=5;slot++){
+      await ui(`const select=document.getElementById('scientific-slot');select.value='${slot}';select.dispatchEvent(new Event('change',{bubbles:true}));document.getElementById('scientific-name').value='آزمون علمی نفر ${slot}';document.getElementById('scientific-score').value='${80+slot}';document.getElementById('scientific-score').dispatchEvent(new Event('input',{bubbles:true}));document.getElementById('save-result').click()`);
+      await waitFor(admin,`document.getElementById('save-result').disabled===false && document.querySelector('.combined-status').textContent.includes('${slot}/۵')`);
+      const result=store.view().results.find(r=>r.teamId===14&&r.disciplineId==='scientific');assert.equal(result.scientificEntries.length,slot);assert.equal(result.scientificScore,slot===5?415:null);
+    }
+    const scienceResult=store.view().results.find(r=>r.teamId===14&&r.disciplineId==='scientific');
+    await ui("const canvas=document.createElement('canvas');canvas.width=80;canvas.height=80;const c=canvas.getContext('2d');c.fillStyle='#227799';c.fillRect(0,0,80,80);const blob=await new Promise(r=>canvas.toBlob(r,'image/png'));const dt=new DataTransfer();dt.items.add(new File([blob],'athlete.png',{type:'image/png'}));document.getElementById('entry-photo-5').files=dt.files;document.getElementById('save-entry-photo-5').click()");
+    await waitFor(admin,"document.getElementById('toast').textContent==='عکس ذخیره شد.'");
+    const athlete=store.view().participantProfiles.find(p=>p.teamId===14&&p.disciplineId==='scientific'&&p.slot===5);assert.ok(athlete.photo.startsWith('data:image/jpeg;base64,'));
+    assert.equal(new CompetitionStore(path.join(temporary,'competition')).view().participantProfiles.find(p=>p.id===athlete.id).photo,athlete.photo);
+    await ui("document.getElementById('result-fields').scrollIntoView({block:'start',behavior:'instant'})");await delay(100);
+    fs.writeFileSync(path.join(out,'scientific-five-entry.png'),(await admin.webContents.capturePage()).toPNG());
+    await ui(`await window.scoreboardAPI.approveResult({resultId:${scienceResult.id}})`);await waitFor(admin,"document.getElementById('save-result').disabled===true && Boolean(document.getElementById('reopen-scientific'))");
+    await ui("document.getElementById('reopen-scientific').click()");await waitFor(admin,"document.getElementById('save-result').disabled===false");
+    await assert.rejects(display.webContents.executeJavaScript("window.scoreboardAPI.saveScientificScore({teamId:14,slot:1,name:'نام',score:90})"),/مدیریت/);
+    await assert.rejects(display.webContents.executeJavaScript(`window.scoreboardAPI.saveParticipant({id:${athlete.id},photo:''})`),/مدیریت/);
+    check('five scientific participants save through the real form independently, sum to 415, survive restart, lock/reopen and upload a compressed portrait');
+    await ui("document.querySelector('[data-view=reports]').click();const type=document.getElementById('report-type');type.value='team';type.dispatchEvent(new Event('change',{bubbles:true}));document.getElementById('report-team').value='14';document.getElementById('generate-report').click();document.getElementById('report-add-comments').click();document.getElementById('report-comments').value='توضیحات آزمون چاپ — امضای سرداور و مسئول برگزاری و دو عضو کمیته فنی';");
+    assert.deepEqual(await admin.webContents.executeJavaScript("Array.from(document.querySelectorAll('#report-options input,#report-options select,#report-options textarea,#report-options button:not(.help-icon)')).filter(n=>!n.dataset.helpAttached).map(n=>n.id)"),[]);
+    fs.writeFileSync(path.join(out,'report-options.png'),(await admin.webContents.capturePage()).toPNG());
+    outputPath=path.join(out,'team-details-multi.pdf');await ui("document.getElementById('toast').textContent='';document.getElementById('report-create').click()");await waitFor(admin,"document.getElementById('toast').textContent==='فایل PDF ذخیره شد.'");
+    await ui("document.getElementById('generate-report').click();document.getElementById('report-layout').value='single';document.getElementById('report-add-comments').click();document.getElementById('report-comments').value='گزارش تک‌صفحه‌ای آزمایشی';");
+    outputPath=path.join(out,'team-details-single.pdf');await ui("document.getElementById('toast').textContent='';document.getElementById('report-create').click()");await waitFor(admin,"document.getElementById('toast').textContent==='فایل PDF ذخیره شد.'");
+    const singlePage=file=>assert.equal((fs.readFileSync(file).toString('latin1').match(/\/Type\s*\/Page\b/g)||[]).length,1,`Single-page export: ${file}`);
+    singlePage(outputPath);
+    reportStore=fullStore;
+    for(const type of ['overall','individual','standings','item','team']){
+      outputPath=path.join(out,`${type}-single-full.pdf`);await exportHandler({sender:admin.webContents},{type,layout:'single',disciplineId:'scientific',teamId:1,comments:'آزمون تک‌صفحه‌ای: همه ردیف‌ها و چهار محل امضا'});singlePage(outputPath);
+    }
+    reportStore=store;
+    outputPath=path.join(out,'draw-single.pdf');await exportHandler({sender:admin.webContents},{type:'draw',drawId:store.view().draws[0].id,layout:'single',comments:'قرعه با چهار امضا'});singlePage(outputPath);
+    check('reports menu exports team details, optional comments and all six PDF types fit one page with all rows and four signatures');
     await ui("document.querySelector('[data-view=teams]').click()");
     for(const id of ['team-athlete-1','team-athlete-2'])assert.ok(await admin.webContents.executeJavaScript(`document.querySelector('label[for=${id}]').textContent.includes('عملیات ترکیبی')`));
     await ui("document.getElementById('team-athlete-1').scrollIntoView({block:'center'});await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));");
@@ -409,6 +445,7 @@ app.whenReady().then(async () => {
     admin.setContentSize(1480,920);
     await waitFor(admin,"innerHeight===920");
     await assert.rejects(display.webContents.executeJavaScript("window.scoreboardAPI.prepareDeletion({kind:'reset'})"),/مدیریت/);
+    restoreSource=path.join(temporary,"full-backup.json");store.exportSnapshot(restoreSource);
     const beforeReset=store.view();
     await ui("document.getElementById('reset-all').click();document.getElementById('delete-cancel').click()");
     assert.deepEqual(store.view(),beforeReset);
@@ -443,9 +480,21 @@ app.whenReady().then(async () => {
     await waitFor(display,"document.querySelector('tr[data-team-id]')?.dataset.teamId==='1'");
     assert.equal(store.view().teams[0].code,"T01");
     check("full reset clears scores/draws/settings/audit/backups live; reopening stays empty and new team numbering starts at T01");
+    const beforeRestore=store.view();
+    await ui("document.getElementById('restore-backup').click()");await waitFor(admin,"Boolean(document.getElementById('restore-next'))");await ui("document.getElementById('restore-cancel').click()");assert.deepEqual(store.view(),beforeRestore);
+    await ui("document.getElementById('restore-backup').click()");await waitFor(admin,"Boolean(document.getElementById('restore-next'))");await ui("document.getElementById('restore-next').click();document.getElementById('restore-cancel').click()");assert.deepEqual(store.view(),beforeRestore);
+    await ui("document.getElementById('restore-backup').click()");await waitFor(admin,"Boolean(document.getElementById('restore-next'))");await ui("document.getElementById('restore-next').click();document.getElementById('restore-confirmation').value='تایید';document.getElementById('restore-confirmation').dispatchEvent(new Event('input',{bubbles:true}))");
+    assert.equal(await admin.webContents.executeJavaScript("document.getElementById('restore-final').disabled"),true);await waitFor(admin,"document.getElementById('restore-final').disabled===false",4000);
+    fs.writeFileSync(path.join(out,'restore-confirmation.png'),(await admin.webContents.capturePage()).toPNG());
+    await ui("document.getElementById('restore-final').click()");await waitFor(admin,"!document.getElementById('restore-dialog') && document.getElementById('toast').textContent.includes('بازیابی شدند')");
+    const restored=store.view();for(const key of ['teams','results','roundScores','participantProfiles','draws','combinedSlots','settings'])assert.deepEqual(restored[key],beforeReset[key],key);
+    assert.ok(restored.revision>beforeRestore.revision);await waitFor(display,"document.querySelectorAll('tr[data-team-id]').length>0");
+    await assert.rejects(display.webContents.executeJavaScript("window.scoreboardAPI.prepareRestore()"),/مدیریت/);
+    assert.deepEqual(new CompetitionStore(path.join(temporary,'competition')).view(),restored);
+    check('real JSON restore after full reset retains photos, all scores, frozen lanes, draws and settings; both cancellation steps preserve data and hall cannot restore');
     assert.deepEqual(errors, []);
     fs.writeFileSync(path.join(out, "smoke-result.json"), JSON.stringify({ passed: true, bounds, checks, timings }, null, 2));
-    fs.writeFileSync(path.join(out, "live-data-example.json"), JSON.stringify({ schema_version: 5, revision: store.view().revision, team_scores: store.view().team_scores }, null, 2));
+    fs.writeFileSync(path.join(out, "live-data-example.json"), JSON.stringify({ schema_version: 6, revision: store.view().revision, team_scores: store.view().team_scores }, null, 2));
     console.log("Native Electron smoke passed: production IPC, admin forms, manual turns, live sorting, lifecycle, paging and PDF exports.");
     clearTimeout(watchdog); controller.close(); admin.destroy(); fs.rmSync(path.join(temporary, "competition"), { recursive: true, force: true }); app.exit(0);
   } catch (error) {

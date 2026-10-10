@@ -42,7 +42,7 @@ test('old combined scores retain exact average and common penalty after migratio
  const {store,dir}=fixture(t,2);store.saveCombinedPair({teamId:1,rawPrimaryMs:60000,rawSecondaryMs:80000,penaltyMs:5000});
  const legacy=JSON.parse(fs.readFileSync(store.dataPath));legacy.version=3;delete legacy.athletes;delete legacy.roundScores;delete legacy.combinedStartOrder;
  delete legacy.nextAthleteId;delete legacy.nextRoundScoreId;for(const r of legacy.results){delete r.completionStatus;delete r.legacyTeamPenaltyMs;delete r.roundPenalties;}
- fs.writeFileSync(store.dataPath,JSON.stringify(legacy));const restored=new CompetitionStore(dir);assert.equal(restored.view().version,5);assert.equal(restored.view().itemLeaderboards.combined[0].finalValue,75000);
+ fs.writeFileSync(store.dataPath,JSON.stringify(legacy));const restored=new CompetitionStore(dir);assert.equal(restored.view().version,6);assert.equal(restored.view().itemLeaderboards.combined[0].finalValue,75000);
  save(restored,1,1,40000);assert.equal(restored.view().itemLeaderboards.combined[0].finalValue,65000);
 });
 test('deletion rejects fast, unconfirmed, stale and replayed requests; removing one round restores partial and recalculates ranks',t=>{
@@ -100,6 +100,6 @@ test('late teams get persistent supplemental slots without changing any previous
 test('v4 data with a late team missing its lane migrates without changing scores, approvals or base slots',t=>{
  const {store,dir}=fixture(t,2);save(store,1,1,60000);save(store,1,2,50000);const result=store.view().results[0];store.approveResult({resultId:result.id});store.addTeam({name:'قبلاً بدون لاین'});
  const legacy=JSON.parse(fs.readFileSync(store.dataPath));legacy.version=4;delete legacy.combinedSlots;fs.writeFileSync(store.dataPath,JSON.stringify(legacy));
- const restored=new CompetitionStore(dir);assert.equal(restored.view().version,5);assert.deepEqual(restored.view().roundScores,legacy.roundScores);assert.deepEqual(restored.view().results,legacy.results);
+ const restored=new CompetitionStore(dir);assert.equal(restored.view().version,6);assert.deepEqual(restored.view().roundScores,legacy.roundScores);assert.deepEqual(restored.view().results,legacy.results);
  assert.equal(assignment(restored.view(),1,2).athleteNumber,3);assert.equal(assignment(restored.view(),3,1).athleteNumber,5);save(restored,3,1,42000);assert.equal(restored.view().combinedTeams.find(t=>t.teamId===3).status,'Partial');
 });

@@ -90,7 +90,7 @@ function registerStateIPC({ ipcMain, getStore, getAdmin, display }) {
     return getStore().view();
   });
   for (const [channel, method] of Object.entries({ "draw:create": "createDraw", "display:set": "setDisplay", "team:add": "addTeam",
-    "result:save": "saveResult", "result:approve": "approveResult", "result:reopen": "reopenResult", "settings:update": "updateSettings", "round:save":"saveRoundScore", "delete:confirm":"confirmDeletion" })) {
+    "result:save": "saveResult", "result:approve": "approveResult", "result:reopen": "reopenResult", "settings:update": "updateSettings", "round:save":"saveRoundScore", "scientific:save":"saveScientificScore", "participant:save":"saveParticipant", "data:restore-confirm":"confirmRestore", "delete:confirm":"confirmDeletion" })) {
     ipcMain.handle(channel, (event, payload = {}) => { assertAdmin(event); const state = getStore()[method](payload); broadcast(state); return state; });
   }
   ipcMain.handle("delete:prepare", (event,payload) => { assertAdmin(event); return getStore().prepareDeletion(payload); });
