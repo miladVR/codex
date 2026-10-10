@@ -115,7 +115,7 @@ function registerReports({ ipcMain, dialog, BrowserWindow, getStore, getWindow, 
       await report.loadFile(temporary);
       await report.webContents.executeJavaScript("document.fonts.ready.then(() => true)");
       if(options.layout==="single"){
-        await report.webContents.executeJavaScript(`(()=>{const body=document.body;const width=${payload.type==="draw"?700:1020},height=${payload.type==="draw"?1000:660};let scale=1;for(let i=0;i<8;i++){body.style.zoom=String(scale);body.style.width=String(width/scale)+'px';const bounds=body.getBoundingClientRect();if(bounds.height<=height*.97)break;scale*=height*.97/bounds.height;}return true;})()`);
+        await report.webContents.executeJavaScript(`(()=>{const body=document.body;const width=${payload.type==="draw"?700:1020},height=${payload.type==="draw"?1000:660};const measure=scale=>{body.style.zoom=String(scale);body.style.width=String(width/scale)+'px';return body.getBoundingClientRect().height;};if(measure(1)>height*.97){let low=.01,high=1;for(let i=0;i<14;i++){const middle=(low+high)/2;if(measure(middle)<=height*.97)low=middle;else high=middle;}measure(low*.99);}return true;})()`);
       }
       const pdf = await report.webContents.printToPDF({ printBackground:true, pageSize:"A4", landscape:payload.type !== "draw", margins:{top:.5,bottom:.6,left:.45,right:.45}, displayHeaderFooter:true, headerTemplate:"<span></span>", footerTemplate:`<div style="font-family:Tahoma;font-size:8px;width:100%;text-align:center;direction:rtl">${ORGANIZATION} · صفحه <span class="pageNumber"></span> از <span class="totalPages"></span></div>` });
       fs.writeFileSync(choice.filePath, pdf);
