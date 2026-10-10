@@ -17,7 +17,7 @@ const titles = { reports:"گزارش‌گیری", dashboard: "تابلوی نت�
 help.install({getContext:source=>({state,drawScope,drawBusy,teamId:selectedTeam || document.getElementById("team")?.value,disciplineId:selectedDiscipline,slot:state?.combinedTeams.find(t=>t.teamId===Number(document.getElementById("team")?.value))?.rounds[selectedRound-1],result:state?.results.find(r=>r.id===Number(source?.dataset.id))}),openGuide:()=>setView("guide")});
 document.getElementById("view-help").onclick=()=>help.showTopic(currentView,document.getElementById("view-help"));
 help.decorate(document.querySelector(".sidebar"));help.decorate(document.querySelector("header"));
-document.querySelectorAll(".nav-item").forEach((button) => button.addEventListener("click", () => setView(button.dataset.view)));
+document.querySelectorAll(".nav-item[data-view]").forEach((button) => button.addEventListener("click", () => setView(button.dataset.view)));
 document.querySelector("#display-btn").addEventListener("click", () => openDisplay().catch(error => notify(`خطای نمایشگر: ${error.message}`, true)));
 document.querySelector("#backup-btn").addEventListener("click", async () => { const result = await api.backup(); if (!result.canceled) notify("نسخه پشتیبان ذخیره شد."); });
 document.getElementById("restore-backup").addEventListener("click",restoreBackup);
