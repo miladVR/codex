@@ -54,3 +54,12 @@ test('every PDF has four signature positions, escaped optional comments and comp
  for(const payload of [{type:'overall'},{type:'standings'},{type:'team',teamId:1},{type:'item',disciplineId:'scientific'},{type:'individual'},{type:'draw',drawId:state.draws[0].id}]){const html=reportHtml(state,{...payload,layout:'single',comments:'<script> توضیح آزمایشی'});assert.equal((html.match(/class="signature"/g)||[]).length,4);assert.ok(html.includes('&lt;script&gt;'));assert.ok(!html.includes('<script>'));}
  const html=reportHtml(state,{type:'team',teamId:1});assert.equal((html.match(/data-team-detail=/g)||[]).length,13);assert.ok(html.includes('شرکت‌کننده 5'));assert.ok(html.includes('۴۵۰'));assert.throws(()=>reportOptions({layout:'unknown'}));assert.throws(()=>reportOptions({comments:'x'.repeat(1501)}));assert.throws(()=>reportHtml(state,{type:'team',teamId:999}));
 });
+
+test('failed restore rename or backup creation leaves both live and durable competition data intact',t=>{
+ const {store,dir}=fixture(t);const file=path.join(dir,'restore.json');store.exportSnapshot(file);store.addTeam({name:'اطلاعات فعلی باید حفظ شود'});const before=store.view();
+ for(const method of ['renameSync','copyFileSync']){
+  const review=store.prepareRestore(file);store.restoreChallenges.get(review.token).readyAt=0;
+  const original=fs[method];fs[method]=()=>{throw Error('disk blocked');};try{assert.throws(()=>store.confirmRestore({token:review.token,confirmation:'تایید'}),/disk blocked/);}finally{fs[method]=original;}
+  assert.deepEqual(store.view(),before);assert.deepEqual(new CompetitionStore(dir).view(),before);
+ }
+});

@@ -42,4 +42,4 @@ main{grid-template-columns:minmax(0,1fr)}header,.table-panel{min-width:0}
 
 .draw-ticket div>small:first-child{display:none}
 
-.athlete-photo{width:26px;height:26px;object-fit:cover;border-radius:5px;float:right;margin-left:5px}.individual-table .name-viewport{width:calc(100% - 31px)}
+.athlete-photo{width:clamp(10px,calc(var(--row-height) - 4px),26px);height:clamp(10px,calc(var(--row-height) - 4px),26px);object-fit:cover;border-radius:3px;float:right;margin-left:5px}.individual-table .name-viewport{width:calc(100% - clamp(10px,calc(var(--row-height) - 4px),26px) - 5px)}

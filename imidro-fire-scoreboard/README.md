@@ -134,8 +134,8 @@ npm run dist:win
 Workflow گیت‌هاب با هر برچسب منطبق با `imidro-fire-v*` تست‌ها را اجرا، نسخه Setup و Portable ویندوز را ایجاد و به Release همان برچسب پیوست می‌کند:
 
 ```bash
-git tag imidro-fire-v1.4.3
-git push origin imidro-fire-v1.4.3
+git tag imidro-fire-v1.5.0
+git push origin imidro-fire-v1.5.0
 ```
 
 پیش از روز مسابقه، نصب، بازشدن نمایشگر دوم، سیستم صوتی، نسخه پشتیبان و قوانین نهایی محاسبه رتبه باید در یک تمرین کامل آزمایش شوند.

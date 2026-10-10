@@ -50,6 +50,7 @@ function validateSnapshot(input){
  for(const [key,max]of [['competitionName',180],['venue',180],['eventDate',80],['displayMessage',220]])text(state.settings[key]??'',max,key==='competitionName');
  state.settings.competitionLogo=validateLogo(state.settings.competitionLogo||'');state.settings.sponsorLogos??=[];
  if(!Array.isArray(state.settings.sponsorLogos)||state.settings.sponsorLogos.length>3)fail();state.settings.sponsorLogos=state.settings.sponsorLogos.map(validateLogo);
+ for(const key of ['audioEnabled','autoRotate'])if(state.settings[key]!==undefined&&typeof state.settings[key]!=='boolean')fail();
  state.settings.audioVolume??=45;numeric(state.settings.audioVolume,0,100);
  state.settings.displayLayout??='paged';if(!['paged','all'].includes(state.settings.displayLayout))fail();
  state.settings.displayMode??='standings';if(!['standings','draw','item','individual'].includes(state.settings.displayMode))fail();

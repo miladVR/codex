@@ -278,7 +278,15 @@ class CompetitionStore {
     fs.writeFileSync(backup,JSON.stringify(previous,null,2),"utf8");
     this.state=structuredClone(review.candidate);this.state.revision=previous.revision;this.state.resetId=randomUUID();
     this.#audit("restore_backup",`نسخه پشتیبان شامل ${this.state.teams.length} تیم بازیابی شد.`);
-    try{this.#persist();}catch(error){this.state=previous;throw error;}
+    const temp=`${this.dataPath}.tmp`,automatic=path.join(this.backupPath,`backup-${new Date().toISOString().replace(/[:.]/g,"-")}.json`);
+    this.state.revision+=1;
+    try {
+      fs.writeFileSync(temp,JSON.stringify(this.state,null,2),"utf8");
+      fs.copyFileSync(temp,automatic);
+      fs.renameSync(temp,this.dataPath);
+    } catch(error) {
+      fs.rmSync(temp,{force:true});fs.rmSync(automatic,{force:true});this.state=previous;throw error;
+    }
     this.restoreChallenges.clear();this.deletionChallenges.clear();return this.view();
   }
 
