@@ -50,3 +50,5 @@ body[data-text-size=large] .result-tables .pair-record{font-size:clamp(12px,calc
 body[data-text-size=large] .podium-card b{font-size:23px}body[data-text-size=large] .score strong{font-size:26px}
 body[data-text-size=large] .draw-ticket b{font-size:26px}body[data-text-size=large] .draw-ticket strong{font-size:31px}
 @media(min-height:900px){body[data-text-size=large] .brand h1{font-size:38px}body[data-text-size=large] .section-title h2{font-size:29px}}
+/* Inline rank/turn badges must not add a descender line below dense rows. */
+.result-tables .rank,.result-tables .turn,.result-tables .slot-badge{vertical-align:middle;line-height:1}

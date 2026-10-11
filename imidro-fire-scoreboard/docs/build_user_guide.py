@@ -178,7 +178,12 @@ while i<len(source):
             i+=1
         table(rows);continue
     if line.startswith('### '):heading(line[4:],3);i+=1;continue
-    if line.startswith('## '):heading(line[3:],2);i+=1;continue
+    if line.startswith('## '):
+        # Keep the final event-day checklist together as a useful printable page.
+        if line.startswith('## ۱۵.'):
+            needed=70+sum(len(wrap(clean(x.lstrip('- ')),RIGHT-LEFT-10))*12.5*1.75+8 for x in source[i+1:] if x.strip())
+            ensure(min(needed,TOP-BOTTOM))
+        heading(line[3:],2);i+=1;continue
     if line.startswith('- '):paragraph('• '+line[2:],indent=10);i+=1;continue
     if re.match(r'^[۰-۹0-9]+[.،)]',line):paragraph(line,indent=8);i+=1;continue
     paragraph(line);i+=1
