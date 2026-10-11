@@ -1,5 +1,6 @@
 "use strict";
 
+const {defaults:appearanceDefaults,validate:validateAppearance}=require("./src/appearance.js");
 const fs = require("node:fs");
 const path = require("node:path");
 const { randomInt, randomUUID } = require("node:crypto");
@@ -453,7 +454,7 @@ class CompetitionStore {
     if (!Array.isArray(sponsorLogos) || sponsorLogos.length>3) throw new Error("حداکثر سه لوگوی حامی مجاز است.");
     const sponsors=sponsorLogos.map(logo=>validateLogo(logo));
     this.state.settings = {
-      ...this.state.settings, competitionLogo, sponsorLogos:sponsors,
+      ...this.state.settings, ...validateAppearance({...this.state.settings,...payload}), competitionLogo, sponsorLogos:sponsors,
       eventDate:payload.eventDate===undefined ? this.state.settings.eventDate : clean(payload.eventDate,80),
       competitionName: clean(payload.competitionName || this.state.settings.competitionName, 180),
       venue: payload.venue===undefined ? this.state.settings.venue : clean(payload.venue,180),
@@ -495,7 +496,7 @@ class CompetitionStore {
       parsed.draws = parsed.draws.map(draw => ({ ...draw, method: draw.method ?? "auto",
         entries: draw.entries.map((entry, index) => ({ ...entry, drawOrder: entry.drawOrder ?? index + 1 })) }));
       parsed.revision ??= 0;
-      parsed.settings = { eventDate:"", competitionLogo:"", sponsorLogos:[], audioVolume: 45, autoRotate: true, displayLayout: "paged", displayMode: "standings", displayDrawId: null, displayItemId: null, ...parsed.settings };
+      parsed.settings = { ...appearanceDefaults, eventDate:"", competitionLogo:"", sponsorLogos:[], audioVolume: 45, autoRotate: true, displayLayout: "paged", displayMode: "standings", displayDrawId: null, displayItemId: null, ...parsed.settings };
       if (parsed.settings.displayMessage === "نتایج رسمی پس از تأیید سرداور نمایش داده می‌شوند.")
         parsed.settings.displayMessage = "نتایج زنده تا تأیید سرداور موقت هستند؛ نوبت اجرا با رتبه متفاوت است.";
       if(!["paged","all"].includes(parsed.settings.displayLayout)) parsed.settings.displayLayout="paged";
@@ -521,7 +522,7 @@ class CompetitionStore {
         organizationCredit: ORGANIZATION,
         draws: [], athletes:[],roundScores:[],combinedStartOrder:[],combinedSlots:[],nextAthleteId:1,nextRoundScoreId:1,
         settings: {
-          eventDate:"",competitionLogo:"",sponsorLogos:[],
+          ...appearanceDefaults,eventDate:"",competitionLogo:"",sponsorLogos:[],
           competitionName: "سومین دوره مسابقات علمی و عملیاتی آتش‌نشانان ایمیدرو",
           venue: "مجتمع مس سرچشمه رفسنجان · ۱۴۰۵",
           audioEnabled: true,

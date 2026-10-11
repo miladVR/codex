@@ -56,6 +56,7 @@ setInterval(synchronize, 5000);
 function pages() { return plan().pageCount; }
 function render() {
   if (!state) return;
+  window.scoreboardAppearance.apply(state.settings);
   page = Math.min(page, pages() - 1);
   if (Date.now() > highlightUntil) updatedTeams.clear();
   document.body.classList.toggle("draw-mode", isDraw());
@@ -100,10 +101,18 @@ function fitPage() {
     const head=Math.max(...tables.map(table=>table.tHead.getBoundingClientRect().height));
     const rowHeight=Math.max(16,Math.floor((area.clientHeight-head-4)/rows));
     area.style.setProperty("--row-height",`${rowHeight}px`);
-    area.style.setProperty("--table-font",`${Math.max(12,Math.min(26,Math.floor(rowHeight*.7)))}px`);
+    area.style.setProperty("--table-font",`${Math.max(12,Math.min(state.settings.displayTextSize==="standard"?26:34,Math.floor(rowHeight*(state.settings.displayTextSize==="standard"?.7:.82))))}px`);
     area.style.setProperty("--badge-size",`${Math.max(14,Math.min(32,rowHeight-4))}px`);
   }
   fitNames();
+  // Preserve complete time digits in narrow columns while using larger text
+  // wherever the available cell width permits it.
+  for(const cell of area.querySelectorAll('td.record')){
+    const target=cell.querySelector('.pair-record')||cell;
+    target.style.removeProperty('font-size');
+    let size=parseFloat(getComputedStyle(target).fontSize);
+    while(size>12&&cell.scrollWidth>cell.clientWidth+1){size-=.5;target.style.fontSize=`${Math.max(12,size)}px`;}
+  }
 }
 function fullName(text){return `<span class="name-viewport"><span class="full-name">${escapeHtml(text)}</span></span>`;}
 function fitNames(nonTableOnly=false){
@@ -115,7 +124,7 @@ function fitNames(nonTableOnly=false){
     const draw=viewport.closest(".draw-ticket");
     const height=row?Math.max(13,parseFloat(getComputedStyle(document.getElementById("standings")).getPropertyValue("--row-height"))-4):draw?Math.max(13,draw.clientHeight-32):28;
     viewport.style.height=`${height}px`;
-    const max=Math.max(12,Math.min(26,parseFloat(getComputedStyle(viewport.parentElement).fontSize)||20));
+    const max=Math.max(12,Math.min(34,parseFloat(getComputedStyle(viewport.parentElement).fontSize)||20));
     text.style.whiteSpace="normal";text.style.width="auto";
     let size=max;
     for(;size>12;size-=.5){text.style.fontSize=`${size}px`;if(text.scrollHeight<=height&&text.scrollWidth<=viewport.clientWidth+1)break;}

@@ -177,6 +177,23 @@ app.whenReady().then(async () => {
       assert.ok(fit.bottom<=fit.areaBottom+2,JSON.stringify(fit));assert.ok(fit.footer<=fit.height+2,JSON.stringify(fit));assert.ok(fit.width<=fit.viewport+2,JSON.stringify(fit));assert.ok(fit.badges,JSON.stringify(fit));assert.ok(fit.inside,JSON.stringify(fit));assert.equal(new Set(fit.ids).size,expectedRows);
       return fit;
     }
+    // Appearance is saved through the real settings form and broadcast to the hall.
+    await ui("document.querySelector('[data-view=settings]').click();document.getElementById('background-mode').value='solid';document.getElementById('background-mode').dispatchEvent(new Event('input'));document.getElementById('background-start').value='#f4ecd8';document.getElementById('background-start').dispatchEvent(new Event('input'))");
+    assert.equal(await admin.webContents.executeJavaScript("document.getElementById('background-end').disabled"),true);
+    assert.equal(store.view().settings.backgroundMode,'gradient','Preview must not mutate persisted settings');
+    await ui("document.getElementById('save-settings').click()");
+    await waitFor(display,"document.body.style.backgroundColor==='rgb(244, 236, 216)'");
+    assert.equal(new CompetitionStore(path.join(temporary,'competition')).view().settings.backgroundStart,'#f4ecd8');
+    await ui("document.getElementById('background-preset').value='light';document.getElementById('background-preset').dispatchEvent(new Event('change'));document.getElementById('background-angle').value='90';document.getElementById('background-angle').dispatchEvent(new Event('input'));document.getElementById('save-settings').click()");
+    await waitFor(display,"document.body.style.backgroundImage.includes('90deg')");
+    assert.ok(await admin.webContents.executeJavaScript("document.body.style.backgroundImage.includes('90deg')"));
+    fs.writeFileSync(path.join(out,'appearance-settings.png'),(await admin.webContents.capturePage()).toPNG());
+    fs.writeFileSync(path.join(out,'appearance-light-hall.png'),(await display.webContents.capturePage()).toPNG());
+    const sizes=await admin.webContents.executeJavaScript("Array.from(document.querySelectorAll('.btn'),b=>({height:b.getBoundingClientRect().height,font:parseFloat(getComputedStyle(b).fontSize)}))");
+    assert.ok(sizes.every(b=>b.font<=16&&b.height>=36),JSON.stringify(sizes));
+    await ui("document.getElementById('background-preset').value='navy';document.getElementById('background-preset').dispatchEvent(new Event('change'));document.getElementById('save-settings').click()");
+    await waitFor(display,"document.body.style.backgroundImage.includes('135deg')");
+    check('solid and gradient preview, presets, disabled solid controls, durable save and both live windows; compact readable buttons');
     // Regression for the reported ten-team case: all ten fit on a single page.
     const smallStore=new CompetitionStore(path.join(temporary,'ten-team-layout'));
     for(let id=1;id<=10;id++)smallStore.addTeam({name:`تیم نمایشی ${id}`});
@@ -244,6 +261,17 @@ app.whenReady().then(async () => {
     check('reported long team name stays complete and readable in all leaderboard modes and draw; reduced-motion disables name panning');
     display.reload();await waitFor(display,"document.querySelector('#table-title').textContent==='آبرسانی'");
     check('fully populated 22-team/44-athlete displays fit at 720p/1080p including paired times, penalties, long names and podium; time digits stay visible');
+    display.setContentSize(1920,1080);await delay(100);
+    const readability={...fullStore.view(),revision:++fullRevision};readability.settings={...readability.settings,displayMode:'item',displayItemId:'water',displayLayout:'paged',autoRotate:false,displayTextSize:'standard'};
+    await display.webContents.executeJavaScript(`receive(${JSON.stringify(readability)})`);await assertTableFit(11,1,2);
+    const normalFont=await display.webContents.executeJavaScript("parseFloat(getComputedStyle(document.querySelector('td')).fontSize)");
+    readability.revision=++fullRevision;readability.settings.displayTextSize='large';
+    await display.webContents.executeJavaScript(`receive(${JSON.stringify(readability)})`);await assertTableFit(11,1,2);
+    const largeFont=await display.webContents.executeJavaScript("parseFloat(getComputedStyle(document.querySelector('td')).fontSize)");assert.ok(largeFont>normalFont,`${largeFont} > ${normalFont}`);
+    fs.writeFileSync(path.join(out,'large-font-hall-1080.png'),(await display.webContents.capturePage()).toPNG());
+    check('large hall text exceeds standard size at Full HD with all 11 paged rows visible');
+    display.reload();await waitFor(display,"document.querySelector('#table-title').textContent==='آبرسانی'");
+
     display.setSize(1280,720);
     await ui("await window.scoreboardAPI.setDisplay({mode:'individual'});document.querySelector('[data-view=entry]').click();const d=document.getElementById('discipline');d.value='combined';d.dispatchEvent(new Event('change',{bubbles:true}));const t=document.getElementById('team');t.value='1';t.dispatchEvent(new Event('change',{bubbles:true}));document.getElementById('athlete-primary').value='ورزشکار اول ۱';for(const [id,v] of [['primary-m','0'],['primary-s','30'],['primary-h','0']]){const n=document.getElementById(id);n.value=v;n.dispatchEvent(new Event('input',{bubbles:true}));}document.getElementById('save-result').click()");
     await waitFor(admin,"document.querySelector('#toast').textContent.includes('رتبه انفرادی')");
