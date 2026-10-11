@@ -187,6 +187,7 @@ app.whenReady().then(async () => {
     await ui("document.getElementById('background-preset').value='light';document.getElementById('background-preset').dispatchEvent(new Event('change'));document.getElementById('background-angle').value='90';document.getElementById('background-angle').dispatchEvent(new Event('input'));document.getElementById('save-settings').click()");
     await waitFor(display,"document.body.style.backgroundImage.includes('90deg')");
     assert.ok(await admin.webContents.executeJavaScript("document.body.style.backgroundImage.includes('90deg')"));
+    await delay(150);
     fs.writeFileSync(path.join(out,'appearance-settings.png'),(await admin.webContents.capturePage()).toPNG());
     fs.writeFileSync(path.join(out,'appearance-light-hall.png'),(await display.webContents.capturePage()).toPNG());
     const sizes=await admin.webContents.executeJavaScript("Array.from(document.querySelectorAll('.btn'),b=>({height:b.getBoundingClientRect().height,font:parseFloat(getComputedStyle(b).fontSize)}))");

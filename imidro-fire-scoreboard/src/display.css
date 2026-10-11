@@ -52,3 +52,4 @@ body[data-text-size=large] .draw-ticket b{font-size:26px}body[data-text-size=lar
 @media(min-height:900px){body[data-text-size=large] .brand h1{font-size:38px}body[data-text-size=large] .section-title h2{font-size:29px}}
 /* Inline rank/turn badges must not add a descender line below dense rows. */
 .result-tables .rank,.result-tables .turn,.result-tables .slot-badge{vertical-align:middle;line-height:1}
+@media(max-height:800px){header{padding:0 10px 6px}.meta{padding:0 10px}footer{padding:0 10px}}
