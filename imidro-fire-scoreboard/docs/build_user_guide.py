@@ -30,7 +30,7 @@ W, H = A4
 LEFT, RIGHT, TOP, BOTTOM = 45, W - 45, H - 60, 58
 INK, MUTED, RED, LINE = map(HexColor, ["#18283e", "#566b82", "#a51d2d", "#ccd6e1"])
 c = canvas.Canvas(str(OUTPUT), pagesize=A4)
-c.setTitle("راهنمای سامانه امتیازدهی آتش‌نشانان ایمیدرو - نسخه ۱.۵.۰")
+c.setTitle("راهنمای سامانه امتیازدهی آتش‌نشانان ایمیدرو - نسخه ۱.۵.۱")
 c.setAuthor(CREDIT)
 y = TOP
 page = 1
@@ -89,7 +89,7 @@ def newpage():
     global y,page
     footer();c.showPage();page+=1;y=TOP
     c.setFillColor(MUTED);c.setFont("Zar",10)
-    drawtext("راهنمای سامانه امتیازدهی آتش‌نشانان ایمیدرو | نسخه ۱.۵.۰",RIGHT,H-31,size=10)
+    drawtext("راهنمای سامانه امتیازدهی آتش‌نشانان ایمیدرو | نسخه ۱.۵.۱",RIGHT,H-31,size=10)
 
 def ensure(height):
     if y-height<BOTTOM:newpage()
@@ -157,7 +157,7 @@ c.drawImage(ImageReader(str(ROOT/'assets/competition-logo.jpg')),W/2-130,H-400,2
 y=H-426
 for text in ["راهنمای نصب و استفاده", "سامانه امتیازدهی مسابقات", "آتش‌نشانان ایمیدرو"]:
     c.setFillColor(INK);drawtext(text,W/2,y,"ZarBold",27,"center");y-=46
-c.setFillColor(RED);drawtext("نسخه ۱.۵.۰ | از نصب تا پایان مسابقه",W/2,y-8,size=16,align="center")
+c.setFillColor(RED);drawtext("نسخه ۱.۵.۱ | از نصب تا پایان مسابقه",W/2,y-8,size=16,align="center")
 c.setFillColor(MUTED);drawtext("قرعه‌کشی • ثبت و تأیید نتایج • نمایش زنده • گزارش PDF",W/2,y-46,size=13,align="center")
 newpage()
 source=(ROOT/'USER_GUIDE_FA.md').read_text(encoding='utf-8').splitlines()
@@ -178,7 +178,12 @@ while i<len(source):
             i+=1
         table(rows);continue
     if line.startswith('### '):heading(line[4:],3);i+=1;continue
-    if line.startswith('## '):heading(line[3:],2);i+=1;continue
+    if line.startswith('## '):
+        # Keep the final event-day checklist together as a useful printable page.
+        if line.startswith('## ۱۵.'):
+            needed=70+sum(len(wrap(clean(x.lstrip('- ')),RIGHT-LEFT-10))*12.5*1.75+8 for x in source[i+1:] if x.strip())
+            ensure(min(needed,TOP-BOTTOM))
+        heading(line[3:],2);i+=1;continue
     if line.startswith('- '):paragraph('• '+line[2:],indent=10);i+=1;continue
     if re.match(r'^[۰-۹0-9]+[.،)]',line):paragraph(line,indent=8);i+=1;continue
     paragraph(line);i+=1

@@ -254,6 +254,36 @@
         },
         "autoRotate": {
           "type": "boolean"
+        },
+        "backgroundMode": {
+          "enum": [
+            "solid",
+            "gradient"
+          ],
+          "default": "gradient"
+        },
+        "backgroundStart": {
+          "type": "string",
+          "pattern": "^#[0-9a-fA-F]{6}$",
+          "default": "#07111f"
+        },
+        "backgroundEnd": {
+          "type": "string",
+          "pattern": "^#[0-9a-fA-F]{6}$",
+          "default": "#18364b"
+        },
+        "backgroundAngle": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 360,
+          "default": 135
+        },
+        "displayTextSize": {
+          "enum": [
+            "standard",
+            "large"
+          ],
+          "default": "large"
         }
       }
     },

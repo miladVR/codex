@@ -43,3 +43,13 @@ main{grid-template-columns:minmax(0,1fr)}header,.table-panel{min-width:0}
 .draw-ticket div>small:first-child{display:none}
 
 .athlete-photo{width:clamp(10px,calc(var(--row-height) - 4px),26px);height:clamp(10px,calc(var(--row-height) - 4px),26px);object-fit:cover;border-radius:3px;float:right;margin-left:5px}.individual-table .name-viewport{width:calc(100% - clamp(10px,calc(var(--row-height) - 4px),26px) - 5px)}
+/* Opaque surfaces keep hall text readable over any chosen background. */
+header{background:#0b1729eF;border-radius:10px;padding:6px 10px}.meta{background:#0b1729ef;border-radius:8px;padding:4px 10px}footer{background:#0b1729ef;border-radius:8px;padding:4px 10px}#announcement{background:#182535f5}
+body[data-text-size=large] .result-tables .record{font-size:clamp(12px,calc(var(--table-font) * .88),30px)}
+body[data-text-size=large] .result-tables .pair-record{font-size:clamp(12px,calc(var(--row-height) * .4),26px)}
+body[data-text-size=large] .podium-card b{font-size:23px}body[data-text-size=large] .score strong{font-size:26px}
+body[data-text-size=large] .draw-ticket b{font-size:26px}body[data-text-size=large] .draw-ticket strong{font-size:31px}
+@media(min-height:900px){body[data-text-size=large] .brand h1{font-size:38px}body[data-text-size=large] .section-title h2{font-size:29px}}
+/* Inline rank/turn badges must not add a descender line below dense rows. */
+.result-tables .rank,.result-tables .turn,.result-tables .slot-badge{vertical-align:middle;line-height:1}
+@media(max-height:800px){header{padding:0 10px 6px}.meta{padding:0 10px}footer{padding:0 10px}}
