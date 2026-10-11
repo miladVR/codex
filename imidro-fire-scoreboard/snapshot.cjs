@@ -1,5 +1,5 @@
-const {validate:validateAppearance}=require("./src/appearance.js");
 "use strict";
+const {validate:validateAppearance}=require("./src/appearance.js");
 const {migrateCombined,assignment}=require('./combined.cjs');
 const {counts,migrateParticipants,validatePhoto,syncScientific}=require('./participants.cjs');
 const {validateLogo}=require('./branding.cjs');
