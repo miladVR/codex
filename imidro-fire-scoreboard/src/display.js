@@ -75,7 +75,7 @@ function render() {
   const total=isDraw()?currentDraw().entries.length:activeRows().length;
   document.querySelector("#page-info").textContent = `صفحه ${number(page + 1)} از ${number(pages())} · ${number(total)} ${isIndividual()?"ورزشکار":"تیم"}`;
   document.querySelector("#table-title").textContent = isDraw() ? currentDraw().title : isIndividual() ? "عملیات ترکیبی — رده‌بندی انفرادی" : isItem() ? currentItem().name : "رده‌بندی کل مسابقات — زنده";
-  document.querySelector("#table-subtitle").textContent = isDraw() ? "شماره نوبت = ترتیب حضور؛ رتبه نیست" : "نوبت اجرا: ثابت | رتبه امتیازی: متغیر";
+  document.querySelector("#table-subtitle").textContent = isDraw() ? "شماره نوبت = ترتیب حضور؛ رتبه نیست" : "نوبت اجرا: ثابت | رتبه امتیازی: متغیر | جریمه: ثانیه";
   renderPodium();
   if (isDraw()) renderDraw(); else if (isIndividual()) renderIndividual(); else if (isItem()) renderItem(); else renderStandings();
   document.querySelector("#pause-pages").textContent = rotationEnabled() ? "توقف گردش" : "ادامه گردش";
@@ -182,7 +182,7 @@ function renderStandings() {
 }
 function renderItem() {
   const item = currentItem();
-  renderTables("item-table",`<th>رتبه امتیازی</th><th>تیم</th><th>نوبت اجرا</th><th>${item.mode === "score" ? "زمان پاسخ" : "رکورد خام"}</th><th>جریمه (ثانیه)</th><th>${item.mode === "score" ? "نمره نهایی" : "زمان نهایی"}</th><th>وضعیت</th>`,visibleRows(),row=>{
+  renderTables("item-table",`<th>رتبه امتیازی</th><th>تیم</th><th>نوبت اجرا</th><th>${item.mode === "score" ? "زمان پاسخ" : "رکورد خام"}</th><th title="جریمه بر حسب ثانیه">جریمه</th><th>${item.mode === "score" ? "نمره نهایی" : "زمان نهایی"}</th><th>وضعیت</th>`,visibleRows(),row=>{
     const result = row.result;
     const statusFull=result?.completionStatus==="Partial"?"در حال تکمیل":!result?"ثبت نشده":result.status==="approved"?"تأییدشده":"موقت";
     const statusShort=result?.completionStatus==="Partial"?"ناقص":!result?"خالی":result.status==="approved"?"رسمی":"موقت";
@@ -191,7 +191,7 @@ function renderItem() {
   });
 }
 function renderIndividual() {
-  renderTables("individual-table",'<th>رتبه</th><th>ورزشکار / تیم</th><th>شماره ورزشکار</th><th>دور</th><th>گروه</th><th>لاین</th><th>زمان خام</th><th>جریمه (ثانیه)</th><th>زمان نهایی</th>',visibleRows(),row=>`<tr data-team-id="${row.team.id}" data-athlete-id="${row.athlete.id}" class="${updatedTeams.has(row.team.id)?"updated":""}"><td>${rankBadge(row.rank)}</td><td class="team" title="${escapeHtml(row.athlete.name||`ورزشکار دور ${row.athlete.round}`)} — ${escapeHtml(row.team.name)}">${athletePortrait(row)}${fullName(`${row.athlete.name||`ورزشکار دور ${row.athlete.round}`} · ${row.team.name}`)}</td><td>${slotBadge("number",row.athleteNumber)}</td><td>${slotBadge("round",row.athlete.round)}</td><td>${slotBadge("heat",row.heat)}</td><td>${slotBadge("lane",row.lane)}</td><td class="record">${formatTime(row.result?.rawMs)}</td><td>${row.result?number(row.result.penaltyMs/1000):"—"}</td><td class="total record">${formatTime(row.finalValue)}</td></tr>`);
+  renderTables("individual-table",'<th>رتبه</th><th>ورزشکار / تیم</th><th>شماره ورزشکار</th><th>دور</th><th>گروه</th><th>لاین</th><th>زمان خام</th><th title="جریمه بر حسب ثانیه">جریمه</th><th>زمان نهایی</th>',visibleRows(),row=>`<tr data-team-id="${row.team.id}" data-athlete-id="${row.athlete.id}" class="${updatedTeams.has(row.team.id)?"updated":""}"><td>${rankBadge(row.rank)}</td><td class="team" title="${escapeHtml(row.athlete.name||`ورزشکار دور ${row.athlete.round}`)} — ${escapeHtml(row.team.name)}">${athletePortrait(row)}${fullName(`${row.athlete.name||`ورزشکار دور ${row.athlete.round}`} · ${row.team.name}`)}</td><td>${slotBadge("number",row.athleteNumber)}</td><td>${slotBadge("round",row.athlete.round)}</td><td>${slotBadge("heat",row.heat)}</td><td>${slotBadge("lane",row.lane)}</td><td class="record">${formatTime(row.result?.rawMs)}</td><td>${row.result?number(row.result.penaltyMs/1000):"—"}</td><td class="total record">${formatTime(row.finalValue)}</td></tr>`);
 }
 function renderDraw() {
   const capacity=plan().capacity;
