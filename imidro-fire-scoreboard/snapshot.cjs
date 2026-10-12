@@ -1,5 +1,5 @@
 "use strict";
-const {validate:validateAppearance}=require("./src/appearance.js");
+const {migrate:migrateAppearance}=require("./src/appearance.js");
 const {migrateCombined,assignment}=require('./combined.cjs');
 const {counts,migrateParticipants,validatePhoto,syncScientific}=require('./participants.cjs');
 const {validateLogo}=require('./branding.cjs');
@@ -48,7 +48,7 @@ function validateSnapshot(input){
  unique(state.draws);
  for(const d of state.draws){text(d.id,100,true);if(!['all',...Object.keys(modes)].includes(d.disciplineId)||!Array.isArray(d.entries)||d.entries.length>500)fail();unique(d.entries,'teamId');const orders=new Set();for(const [i,e]of d.entries.entries()){if(!int(e.teamId))fail();text(e.name,100,true);text(e.organization??'',150);e.drawOrder??=i+1;if(!int(e.drawOrder)||e.drawOrder>d.entries.length||orders.has(e.drawOrder))fail();orders.add(e.drawOrder);}d.method??='auto';}
  if(!object(state.settings))fail();
- Object.assign(state.settings,validateAppearance(state.settings));
+ migrateAppearance(state.settings);
  for(const [key,max]of [['competitionName',180],['venue',180],['eventDate',80],['displayMessage',220]])text(state.settings[key]??'',max,key==='competitionName');
  state.settings.competitionLogo=validateLogo(state.settings.competitionLogo||'');state.settings.sponsorLogos??=[];
  if(!Array.isArray(state.settings.sponsorLogos)||state.settings.sponsorLogos.length>3)fail();state.settings.sponsorLogos=state.settings.sponsorLogos.map(validateLogo);

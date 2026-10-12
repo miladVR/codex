@@ -7,6 +7,7 @@ help.attach(document.getElementById("table-title"),"dashboard","table-title");
 let state, page = 0, paused = false, highlightUntil = 0;
 let updatedTeams = new Set(), resultKeys = new Map(), initialized = false;
 const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+const seconds = value => value == null ? "—" : (value / 1000).toLocaleString("en-US", {useGrouping:false,maximumFractionDigits:3});
 const number = value => value == null ? "—" : Number(value).toLocaleString("fa-IR");
 const escapeHtml = value => String(value ?? "").replace(/[&<>'"]/g, c => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", "'":"&#39;", '"':"&quot;" })[c]);
 const resultKey = result => JSON.stringify(result);
@@ -75,7 +76,7 @@ function render() {
   const total=isDraw()?currentDraw().entries.length:activeRows().length;
   document.querySelector("#page-info").textContent = `صفحه ${number(page + 1)} از ${number(pages())} · ${number(total)} ${isIndividual()?"ورزشکار":"تیم"}`;
   document.querySelector("#table-title").textContent = isDraw() ? currentDraw().title : isIndividual() ? "عملیات ترکیبی — رده‌بندی انفرادی" : isItem() ? currentItem().name : "رده‌بندی کل مسابقات — زنده";
-  document.querySelector("#table-subtitle").textContent = isDraw() ? "شماره آبی = نوبت حضور؛ رتبه نیست" : "نوبت اجرا: آبی ثابت | رتبه امتیازی: طلایی متغیر";
+  document.querySelector("#table-subtitle").textContent = isDraw() ? "شماره نوبت = ترتیب حضور؛ رتبه نیست" : "نوبت اجرا: ثابت | رتبه امتیازی: متغیر | جریمه: ثانیه";
   renderPodium();
   if (isDraw()) renderDraw(); else if (isIndividual()) renderIndividual(); else if (isItem()) renderItem(); else renderStandings();
   document.querySelector("#pause-pages").textContent = rotationEnabled() ? "توقف گردش" : "ادامه گردش";
@@ -98,20 +99,41 @@ function fitPage() {
   } else {
     const tables=Array.from(area.querySelectorAll("table"));if(!tables.length)return;
     const rows=Math.max(...tables.map(table=>table.tBodies[0].rows.length),1);
+    area.dataset.dense=String(rows>=20);
     const head=Math.max(...tables.map(table=>table.tHead.getBoundingClientRect().height));
-    const rowHeight=Math.max(16,Math.floor((area.clientHeight-head-4)/rows));
+    const rowHeight=Math.max(14,Math.floor((area.clientHeight-head-4)/rows));
     area.style.setProperty("--row-height",`${rowHeight}px`);
-    area.style.setProperty("--table-font",`${Math.max(12,Math.min(state.settings.displayTextSize==="standard"?26:34,Math.floor(rowHeight*(state.settings.displayTextSize==="standard"?.7:.82))))}px`);
+    area.style.setProperty("--table-font",`${Math.max(12,Math.min(state.settings.displayTextSize==="standard"?Math.min(26,state.settings.hallFontMax):state.settings.hallFontMax,Math.floor(rowHeight*(state.settings.displayTextSize==="standard"?.7:.82))))}px`);
     area.style.setProperty("--badge-size",`${Math.max(14,Math.min(32,rowHeight-4))}px`);
   }
-  fitNames();
-  // Preserve complete time digits in narrow columns while using larger text
-  // wherever the available cell width permits it.
-  for(const cell of area.querySelectorAll('td.record')){
-    const target=cell.querySelector('.pair-record')||cell;
-    target.style.removeProperty('font-size');
-    let size=parseFloat(getComputedStyle(target).fontSize);
-    while(size>12&&cell.scrollWidth>cell.clientWidth+1){size-=.5;target.style.fontSize=`${Math.max(12,size)}px`;}
+  const canvas=document.createElement('canvas'),measure=canvas.getContext('2d');
+  const fitRecords=()=>{
+    // Table-cell scrollWidth can hide clipped left-side RTL content. Measure
+    // the complete glyph advances instead, including status and penalty text.
+    for(const cell of area.querySelectorAll('td:not(.team)')){
+      if(cell.querySelector('.rank,.turn,.slot-badge'))continue;
+      const pair=cell.querySelector('.pair-record'),target=pair||cell.querySelector('.result-status')||cell;
+      target.style.removeProperty('font-size');const parts=pair?Array.from(pair.children):[target];
+      const cellStyle=getComputedStyle(cell),targetStyle=getComputedStyle(target);
+      const padding=Number.parseFloat(cellStyle.paddingLeft)+Number.parseFloat(cellStyle.paddingRight)+(target===cell?0:Number.parseFloat(targetStyle.paddingLeft)+Number.parseFloat(targetStyle.paddingRight));
+      const available=Math.max(1,cell.clientWidth-padding-1);
+      const width=()=>Math.max(...parts.map(node=>{const s=getComputedStyle(node);measure.font=`${s.fontStyle} ${s.fontWeight} ${s.fontSize} ${s.fontFamily}`;return measure.measureText(node.textContent.trim()).width;}));
+      let high=parseFloat(targetStyle.fontSize);if(width()<=available||high<=12)continue;
+      let low=12;for(let i=0;i<10;i++){const mid=(low+high)/2;target.style.fontSize=`${mid}px`;if(width()<=available)low=mid;else high=mid;}
+      target.style.fontSize=`${Math.floor(low*2)/2}px`;
+    }
+  };
+  fitNames();fitRecords();
+  if(!isDraw()){
+    // Different installed fonts and bold weights have different badge baselines.
+    // Measure the finished tables, then reduce only as much as needed to fit.
+    const tables=Array.from(area.querySelectorAll('table'));
+    for(let attempt=0;attempt<8&&tables.some(t=>t.getBoundingClientRect().bottom>area.getBoundingClientRect().bottom-1);attempt++){
+      const font=parseFloat(area.style.getPropertyValue('--table-font')),badge=parseFloat(area.style.getPropertyValue('--badge-size'));
+      if(font<=12&&badge<=12)break;
+      area.style.setProperty('--table-font',`${Math.max(12,font-.5)}px`);area.style.setProperty('--badge-size',`${Math.max(12,badge-.5)}px`);
+      fitNames();fitRecords();
+    }
   }
 }
 function fullName(text){return `<span class="name-viewport"><span class="full-name">${escapeHtml(text)}</span></span>`;}
@@ -124,7 +146,7 @@ function fitNames(nonTableOnly=false){
     const draw=viewport.closest(".draw-ticket");
     const height=row?Math.max(13,parseFloat(getComputedStyle(document.getElementById("standings")).getPropertyValue("--row-height"))-4):draw?Math.max(13,draw.clientHeight-32):28;
     viewport.style.height=`${height}px`;
-    const max=Math.max(12,Math.min(34,parseFloat(getComputedStyle(viewport.parentElement).fontSize)||20));
+    const max=Math.max(12,Math.min(state.settings.hallFontMax,parseFloat(getComputedStyle(viewport.parentElement).fontSize)||20));
     text.style.whiteSpace="normal";text.style.width="auto";
     let size=max;
     for(;size>12;size-=.5){text.style.fontSize=`${size}px`;if(text.scrollHeight<=height&&text.scrollWidth<=viewport.clientWidth+1)break;}
@@ -161,14 +183,16 @@ function renderStandings() {
 }
 function renderItem() {
   const item = currentItem();
-  renderTables("item-table",`<th>رتبه امتیازی</th><th>تیم</th><th>نوبت اجرا</th><th>${item.mode === "score" ? "زمان پاسخ" : "رکورد خام"}</th><th>جریمه</th><th>${item.mode === "score" ? "نمره نهایی" : "زمان نهایی"}</th><th>وضعیت</th>`,visibleRows(),row=>{
+  renderTables("item-table",`<th>رتبه امتیازی</th><th>تیم</th><th>نوبت اجرا</th><th>${item.mode === "score" ? "زمان پاسخ" : "رکورد خام"}</th><th title="جریمه بر حسب ثانیه">جریمه</th><th>${item.mode === "score" ? "نمره نهایی" : "زمان نهایی"}</th><th>وضعیت</th>`,visibleRows(),row=>{
     const result = row.result;
+    const statusFull=result?.completionStatus==="Partial"?"در حال تکمیل":!result?"ثبت نشده":result.status==="approved"?"تأییدشده":"موقت";
+    const statusShort=result?.completionStatus==="Partial"?"ناقص":!result?"خالی":result.status==="approved"?"رسمی":"موقت";
     const raw = !result ? "—" : item.mode === "score" ? formatTime(result.scientificDurationMs) : item.mode === "pair_time" ? `<span class="pair-record"><span>${formatTime(result.rawPrimaryMs)}</span><span>${formatTime(result.rawSecondaryMs)}</span></span>` : formatTime(result.rawPrimaryMs);
-    return `<tr data-team-id="${row.team.id}" class="${updatedTeams.has(row.team.id) ? "updated" : ""}"><td>${rankBadge(row.rank)}</td><td class="team" title="${escapeHtml(row.team.name)}">${fullName(row.team.name)}</td><td>${turnBadge(row.drawOrder)}</td><td class="record">${raw}</td><td>${result && item.mode !== "score" ? number(result.penaltyMs / 1000) + " ثانیه" : "—"}</td><td class="total record">${item.mode === "score" ? number(row.finalValue) : formatTime(row.finalValue)}</td><td><span class="result-status ${result?.status === "approved" ? "approved" : "draft"}">${result?.completionStatus==="Partial" ? "در حال تکمیل" : !result ? "ثبت نشده" : result.status === "approved" ? "تأییدشده" : "موقت"}</span></td></tr>`;
+    return `<tr data-team-id="${row.team.id}" class="${updatedTeams.has(row.team.id) ? "updated" : ""}"><td>${rankBadge(row.rank)}</td><td class="team" title="${escapeHtml(row.team.name)}">${fullName(row.team.name)}</td><td>${turnBadge(row.drawOrder)}</td><td class="record">${raw}</td><td class="record penalty-value">${result && item.mode !== "score" ? seconds(result.penaltyMs) : "—"}</td><td class="total record">${item.mode === "score" ? number(row.finalValue) : formatTime(row.finalValue)}</td><td><span class="result-status ${result?.status === "approved" ? "approved" : "draft"}" title="${statusFull}" aria-label="${statusFull}">${statusShort}</span></td></tr>`;
   });
 }
 function renderIndividual() {
-  renderTables("individual-table",'<th>رتبه</th><th>ورزشکار / تیم</th><th>شماره ورزشکار</th><th>دور</th><th>گروه</th><th>لاین</th><th>زمان خام</th><th>جریمه</th><th>زمان نهایی</th>',visibleRows(),row=>`<tr data-team-id="${row.team.id}" data-athlete-id="${row.athlete.id}" class="${updatedTeams.has(row.team.id)?"updated":""}"><td>${rankBadge(row.rank)}</td><td class="team" title="${escapeHtml(row.athlete.name||`ورزشکار دور ${row.athlete.round}`)} — ${escapeHtml(row.team.name)}">${athletePortrait(row)}${fullName(`${row.athlete.name||`ورزشکار دور ${row.athlete.round}`} · ${row.team.name}`)}</td><td>${slotBadge("number",row.athleteNumber)}</td><td>${slotBadge("round",row.athlete.round)}</td><td>${slotBadge("heat",row.heat)}</td><td>${slotBadge("lane",row.lane)}</td><td class="record">${formatTime(row.result?.rawMs)}</td><td>${row.result?number(row.result.penaltyMs/1000):"—"}</td><td class="total record">${formatTime(row.finalValue)}</td></tr>`);
+  renderTables("individual-table",'<th>رتبه</th><th>ورزشکار / تیم</th><th>شماره ورزشکار</th><th>دور</th><th>گروه</th><th>لاین</th><th>زمان خام</th><th title="جریمه بر حسب ثانیه">جریمه</th><th>زمان نهایی</th>',visibleRows(),row=>`<tr data-team-id="${row.team.id}" data-athlete-id="${row.athlete.id}" class="${updatedTeams.has(row.team.id)?"updated":""}"><td>${rankBadge(row.rank)}</td><td class="team" title="${escapeHtml(row.athlete.name||`ورزشکار دور ${row.athlete.round}`)} — ${escapeHtml(row.team.name)}">${athletePortrait(row)}${fullName(`${row.athlete.name||`ورزشکار دور ${row.athlete.round}`} · ${row.team.name}`)}</td><td>${slotBadge("number",row.athleteNumber)}</td><td>${slotBadge("round",row.athlete.round)}</td><td>${slotBadge("heat",row.heat)}</td><td>${slotBadge("lane",row.lane)}</td><td class="record">${formatTime(row.result?.rawMs)}</td><td class="record penalty-value">${seconds(row.result?.penaltyMs)}</td><td class="total record">${formatTime(row.finalValue)}</td></tr>`);
 }
 function renderDraw() {
   const capacity=plan().capacity;

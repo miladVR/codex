@@ -7,7 +7,7 @@ app.commandLine.appendSwitch("autoplay-policy", "no-user-gesture-required");
 let adminWindow, display, store;
 function createAdminWindow() {
   adminWindow = new BrowserWindow({ width: 1480, height: 920, minWidth: 1100, minHeight: 720,
-    backgroundColor: "#07111f", title: "سامانه امتیازدهی آتش‌نشانان ایمیدرو",
+    backgroundColor: "#ffffff", title: "سامانه امتیازدهی آتش‌نشانان ایمیدرو",
     webPreferences: { preload: path.join(__dirname, "preload.cjs"), contextIsolation: true, nodeIntegration: false, sandbox: true } });
   adminWindow.loadFile(path.join(__dirname, "src", "index.html")).catch(error => dialog.showErrorBox("خطای پنل مدیریت", error.message));
   adminWindow.on("closed", () => { display?.close(); adminWindow = null; });

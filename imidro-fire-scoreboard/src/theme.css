@@ -1,0 +1,55 @@
+:root{--text:#000000;--ink:#000000;--muted:#000000;--gold:#000000;--theme-accent:#000000;--theme-surface:#fff7e6;--theme-input:#fffdf7;--line:#d7cab4;--theme-button:#f1dfbe;--theme-button-text:#000000;--theme-success:#d4edda;--theme-danger:#f8d7da;--theme-neutral:#fffaf0;--admin-font:18px;--hall-font-max:34px;--theme-weight:400;--number-font:Consolas,monospace}body{background:#ffffff;color:#000000}
+/* One palette for every production surface, including dialogs and contextual help. */
+[data-appearance="2"]{color:var(--text);font-family:var(--fa-font);font-weight:var(--theme-weight)}
+[data-appearance="2"] :is(button,input,select,textarea){font-family:var(--fa-font)}
+[data-appearance="2"] :is(header,.sidebar,.card,.metric,.hero,.table-panel,.podium-card,.podium-card.first,.meta,footer,.org-credit,.combined-status,.lane-card,.participant-card,.team,.draw-ticket,.manual-toc,.manual-section,.appearance-settings,.switch-row,.offline-card,.result-preview,.time-picker,.delete-dialog,.report-dialog,.context-help-dialog,#toast,#announcement){background:var(--theme-surface);color:var(--text);border-color:var(--line);box-shadow:none}
+[data-appearance="2"] :is(h1,h2,h3,h4,label,b,strong,.team,.full-name,.competition-name,.draw-ticket strong,.draw-ticket b,.brand strong){color:var(--text)}
+[data-appearance="2"] :is(p,small,th,.field label,.guide ol,.hero p,.round-summary,.draw-info,.audit-item,.audit-item time,.inline-status,.manual-section,.manual-section h3,.manual-toc a,#guide-search-status,.brand #venue,.brand small,.clock span,.meta,.section-title span,.team small,#connection-status,#display-message,.org-credit,.draw-ticket small,.appearance-settings p){color:var(--muted)}
+[data-appearance="2"] :is(.field input,.field select,.field textarea,.delete-dialog input,.context-help-dialog input,.manual-section pre,.manual-section table,.background-preview .preview-card){background:var(--theme-input);color:var(--text);border-color:var(--line)}
+[data-appearance="2"] :is(select option){background:var(--theme-input);color:var(--text)}
+[data-appearance="2"] :is(.btn,.nav-item.active,.help-close,.help-full,.page-controls button,.preview-button){background:var(--theme-button);color:var(--theme-button-text);border:1px solid var(--line);box-shadow:none}
+[data-appearance="2"] :is(.btn.success,.preview-success){background:var(--theme-success);color:var(--theme-button-text)}
+[data-appearance="2"] :is(.btn.danger,.reset-all,.preview-danger){background:var(--theme-danger)!important;color:var(--theme-button-text);border-color:var(--line)}
+[data-appearance="2"] :is(.btn.ghost,.nav-item,.help-icon.help-icon,.help-close,.page-controls button,.preview-neutral){background:var(--theme-neutral);color:var(--theme-button-text);border-color:var(--line)}
+[data-appearance="2"] .nav-item.active{background:var(--theme-button);color:var(--theme-button-text);font-weight:700}
+[data-appearance="2"] :is(.btn:hover:not(:disabled),.nav-item:hover,.help-icon.help-icon:hover,.manual-toc a:hover){filter:brightness(.97);color:var(--theme-button-text)}
+[data-appearance="2"] .reset-all:hover{background:var(--theme-danger)!important;filter:brightness(.95)}
+[data-appearance="2"] :is(.tag,.tag.green,.tag.orange,.result-status,.result-status.draft,.result-status.approved,.rank,.rank.first,.turn,.slot-badge,.slot-number,.slot-round,.slot-heat,.slot-lane,.medal,.first .medal){color:var(--text);background:var(--theme-input);border-color:var(--line)}
+[data-appearance="2"] :is(.rank.first,.first .medal,.slot-lane){background:var(--theme-button)}
+[data-appearance="2"] :is(.tag.green,.result-status.approved,.slot-heat){background:var(--theme-success)}
+[data-appearance="2"] :is(.result-status.draft,.slot-round){background:var(--theme-surface)}
+[data-appearance="2"] .slot-number{border:1px solid var(--line)}[data-appearance="2"] .slot-round{border-style:dashed}[data-appearance="2"] .slot-lane{border-style:double;border-width:1px}
+[data-appearance="2"] :is(.total,.score strong,.clock strong,.eyebrow,#page-info,.result-preview strong){color:var(--theme-accent)}
+[data-appearance="2"] :is(.complete,.live,.status-dot){color:var(--text)}
+[data-appearance="2"] :is(tr.updated,tr.updated .team){background:var(--theme-button);color:var(--text)}
+[data-appearance="2"] :is(th,td,.audit-item,.org-credit,.table-panel){border-color:var(--line)}
+[data-appearance="2"] :is(#delete-error,#restore-error,#toast.error){color:var(--text);border-color:var(--theme-danger);font-weight:700}
+[data-appearance="2"] :is(button,input,select,textarea):focus-visible{outline:3px solid var(--theme-accent);outline-offset:2px}
+[data-appearance="2"] :is(.field input,.field select,.field textarea):focus{border-color:var(--theme-accent);box-shadow:none}
+[data-appearance="2"] :is(.btn,.preview-button){font-size:calc(var(--admin-font) - 2px);min-height:36px;padding:6px 12px;font-weight:700}
+[data-button-size="comfortable"] :is(.btn,.preview-button){min-height:44px;padding:9px 16px}
+body:not(.hall-display)[data-appearance="2"]{font-size:var(--admin-font)}
+body:not(.hall-display)[data-appearance="2"] :is(th,td,.field label,.field input,.field select,.field textarea,.guide ol,.hero p,.tag,.metric span,.team small,.round-summary,.draw-info,.draw-confirm,.draw-history li,.manual-section,.audit-item){font-size:var(--admin-font);font-weight:var(--theme-weight)}
+body:not(.hall-display)[data-appearance="2"] :is(.card h2,.card h3,header h1){font-size:calc(var(--admin-font) + 3px)}
+body:not(.hall-display)[data-appearance="2"] .nav-item{font-size:calc(var(--admin-font) - 1px)}
+body:not(.hall-display)[data-appearance="2"] :is(.delete-dialog,.report-dialog,.context-help-dialog){font:calc(var(--admin-font) + 2px) var(--fa-font)}
+body:not(.hall-display)[data-appearance="2"] :is(.delete-dialog input,.report-dialog input){font-size:calc(var(--admin-font) + 2px)}
+body:not(.hall-display)[data-appearance="2"] .field input[type=color]{padding:4px;min-height:42px;height:42px}
+body:not(.hall-display)[data-appearance="2"] .field input[type=range]{padding:0}
+.background-preview{height:auto;min-height:180px;padding:16px;display:block}.preview-card{border:1px solid var(--line);border-radius:10px;padding:14px;text-align:center}.preview-card p{margin:4px 0 12px}.preview-actions{display:flex;flex-wrap:wrap;justify-content:center;gap:8px}.preview-button{display:inline-block;border-radius:8px;border:1px solid var(--line)}
+.appearance-settings details{border:1px solid var(--line);border-radius:10px;padding:12px;margin-bottom:12px}.appearance-settings summary{font-weight:700;cursor:pointer;margin-bottom:12px}.appearance-settings .form-grid{gap:10px}.appearance-note{padding:10px;border:1px solid var(--line);border-radius:8px;color:var(--text)!important}.appearance-settings input:disabled{opacity:.5}.custom-font-name{direction:ltr}.background-preview .preview-card{font-size:var(--admin-font);font-weight:var(--theme-weight)}
+.hall-display[data-appearance="2"] .record{font-family:var(--number-font)}
+.hall-display[data-appearance="2"] .result-tables td{font-weight:var(--theme-weight)}
+.hall-display[data-appearance="2"][data-text-size="large"] .result-tables .record{font-size:clamp(12px,calc(var(--table-font) * .88),var(--hall-font-max))}
+.hall-display[data-appearance="2"] #standings[data-dense="true"] th{font-size:12px;line-height:1;padding-top:3px;padding-bottom:3px}
+.hall-display[data-appearance="2"] #standings[data-dense="true"] th .help-icon{width:14px;min-width:14px;height:14px;min-height:14px;font-size:11px}
+[data-appearance="2"] :is(input,textarea)::placeholder{color:var(--muted);opacity:1}
+[data-appearance="2"] .brand strong{font-family:var(--fa-font)}
+[data-appearance="2"] :is(.time-part select,.time-separator,.result-preview strong){font-family:var(--number-font)}
+
+.appearance-card .appearance-settings{border:0;margin:0;padding:0}.appearance-settings .form-grid{grid-template-columns:repeat(auto-fit,minmax(230px,1fr))}
+/* Numeric font selection covers badges, clocks and counters as well as times. */
+[data-appearance="2"] :is(.rank,.turn,.slot-badge b,.medal,.metric b,.clock strong,.score strong,.draw-ticket strong){font-family:var(--number-font)}
+[data-appearance="2"] .draw-ticket .turn{min-width:42px;height:42px;font-size:24px;line-height:1.2}
+
+.hall-display[data-appearance="2"] .result-tables :is(.rank,.turn){font-size:clamp(12px,calc(var(--badge-size) * .78),26px)}
