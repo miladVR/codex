@@ -7,7 +7,7 @@ const os = require("node:os");
 const path = require("node:path");
 const { CompetitionStore } = require("../store.cjs");
 const {registerBackups}=require("../backup-controller.cjs");
-const { registerReports } = require("../report.cjs");
+const { reportHtml, registerReports } = require("../report.cjs");
 const { DisplayController, registerStateIPC } = require("../display-controller.cjs");
 const root = path.join(__dirname, "..");
 const temporary = fs.mkdtempSync(path.join(os.tmpdir(), "imidro-smoke-"));
@@ -195,12 +195,12 @@ app.whenReady().then(async () => {
     await ui("document.getElementById('background-preset').value='navy';document.getElementById('background-preset').dispatchEvent(new Event('change'));document.getElementById('save-settings').click()");
     await waitFor(display,"document.body.style.backgroundImage.includes('135deg')");
     check('solid and gradient preview, presets, disabled solid controls, durable save and both live windows; compact readable buttons');
-    await ui("document.getElementById('appearance-reset').click();document.getElementById('appearance-fontFamily').value='tahoma';document.getElementById('appearance-fontFamily').dispatchEvent(new Event('input'));document.getElementById('appearance-adminFontSize').value='20';document.getElementById('appearance-hallFontMax').value='40';document.getElementById('appearance-textColor').value='#123456';document.getElementById('appearance-buttonColor').value='#aabbcc';document.getElementById('appearance-successColor').value='#ccf0cc';document.getElementById('appearance-dangerColor').value='#f0cccc';document.getElementById('appearance-fontWeight').value='700';document.getElementById('appearance-numberFont').value='same';document.getElementById('appearance-buttonSize').value='comfortable';document.getElementById('appearance-textColor').dispatchEvent(new Event('input'))");
+    await ui("document.getElementById('appearance-reset').click();document.getElementById('appearance-fontFamily').value='tahoma';document.getElementById('appearance-fontFamily').dispatchEvent(new Event('input'));document.getElementById('appearance-adminFontSize').value='20';document.getElementById('appearance-hallFontMax').value='40';document.getElementById('appearance-rowOddColor').value='#fce4d6';document.getElementById('appearance-rowEvenColor').value='#ddebf7';document.getElementById('appearance-textColor').value='#123456';document.getElementById('appearance-buttonColor').value='#aabbcc';document.getElementById('appearance-successColor').value='#ccf0cc';document.getElementById('appearance-dangerColor').value='#f0cccc';document.getElementById('appearance-fontWeight').value='700';document.getElementById('appearance-numberFont').value='same';document.getElementById('appearance-buttonSize').value='comfortable';document.getElementById('appearance-textColor').dispatchEvent(new Event('input'))");
     assert.equal(store.view().settings.textColor,'#ffffff','Preview must not save custom colors');
     await ui("document.getElementById('save-appearance').click()");
     await waitFor(display,"getComputedStyle(document.body).fontFamily.startsWith('Tahoma') && getComputedStyle(document.body).color==='rgb(18, 52, 86)'");
     await waitFor(admin,"getComputedStyle(document.querySelector('.btn.primary')).backgroundColor==='rgb(170, 187, 204)'");
-    const custom=new CompetitionStore(path.join(temporary,'competition')).view().settings;assert.equal(custom.adminFontSize,20);assert.equal(custom.hallFontMax,40);assert.equal(custom.successColor,'#ccf0cc');assert.equal(custom.dangerColor,'#f0cccc');assert.equal(custom.numberFont,'same');assert.equal(custom.buttonSize,'comfortable');
+    const custom=new CompetitionStore(path.join(temporary,'competition')).view().settings;assert.equal(custom.rowOddColor,'#fce4d6');assert.equal(custom.rowEvenColor,'#ddebf7');assert.equal(custom.adminFontSize,20);assert.equal(custom.hallFontMax,40);assert.equal(custom.successColor,'#ccf0cc');assert.equal(custom.dangerColor,'#f0cccc');assert.equal(custom.numberFont,'same');assert.equal(custom.buttonSize,'comfortable');
     assert.ok(await admin.webContents.executeJavaScript("Array.from(document.querySelectorAll('.btn')).every(b=>b.getBoundingClientRect().height>=44)"));
     await ui("document.getElementById('appearance-textColor').value='#ffffff';document.getElementById('appearance-textColor').dispatchEvent(new Event('input'))");
     assert.ok((await admin.webContents.executeJavaScript("document.getElementById('appearance-warning').textContent")).includes('خوانایی کم'));assert.equal(store.view().settings.textColor,'#123456');
@@ -253,6 +253,18 @@ app.whenReady().then(async () => {
       await ui("await window.scoreboardAPI.setDisplay({mode:'standings'})");await assertTableFit(22,2,1);
       await ui("await window.scoreboardAPI.updateSettings({displayLayout:'paged'});await window.scoreboardAPI.setDisplay({mode:'item',disciplineId:'water'})");
     }
+    await ui("await window.scoreboardAPI.updateSettings({displayLayout:'all'});await window.scoreboardAPI.setDisplay({mode:'standings'})");
+    await display.webContents.executeJavaScript("updatedTeams.clear();render()");
+    const assertStripes=async(window,selector)=>{const rows=await window.webContents.executeJavaScript(`Array.from(document.querySelectorAll('${selector}'),r=>({tone:r.dataset.rowTone,cells:Array.from(r.cells,c=>getComputedStyle(c).backgroundColor)}))`);assert.ok(rows.length>=2);for(let index=0;index<rows.length;index++){assert.equal(new Set(rows[index].cells).size,1,JSON.stringify(rows[index]));assert.equal(rows[index].cells[0],index%2?'rgb(230, 240, 250)':'rgb(255, 247, 230)');}return rows;};
+    const stripes=await assertStripes(display,'tbody tr');assert.equal(stripes.length,22);assert.equal(stripes[11].tone,'even','Second table continues global stripe parity');
+    fs.writeFileSync(path.join(out,'striped-team-hall.png'),(await display.webContents.capturePage()).toPNG());
+    await display.webContents.executeJavaScript("updatedTeams.add(state.liveStandings[0].team.id);render()");
+    assert.ok(await display.webContents.executeJavaScript("Array.from(document.querySelector('tr.updated').cells).every(c=>getComputedStyle(c).backgroundColor==='rgb(241, 223, 190)')"));
+    await display.webContents.executeJavaScript("updatedTeams.clear();render()");await assertStripes(display,'tbody tr');
+    await ui("document.querySelector('[data-view=dashboard]').click()");await assertStripes(admin,'.table-wrap tbody tr');
+    admin.show();await delay(100);fs.writeFileSync(path.join(out,'striped-team-admin.png'),(await admin.webContents.capturePage()).toPNG());admin.hide();
+    await ui("await window.scoreboardAPI.updateSettings({displayLayout:'paged'});await window.scoreboardAPI.setDisplay({mode:'item',disciplineId:'water'})");
+    check('whole rows alternate cream and blue in admin and both hall tables; updated rows remain highlighted then recover their stripe');
     check('22 teams and 44 athletes fit exactly two pages at 720p and 1080p; all 44 fit one page without missing or duplicate athletes; colored assignments are distinct');
     const fullStore=new CompetitionStore(path.join(temporary,'populated-layout'));
     for(let id=1;id<=22;id++)fullStore.addTeam({name:`منطقه ویژه صنایع فلزی و معدنی خلیج فارس ${id}`,athletePrimary:`ورزشکار اول آزمایشی ${id}`,athleteSecondary:`ورزشکار دوم آزمایشی ${id}`});
@@ -449,6 +461,17 @@ app.whenReady().then(async () => {
     reportStore=store;
     outputPath=path.join(out,'draw-single.pdf');await exportHandler({sender:admin.webContents},{type:'draw',drawId:store.view().draws[0].id,layout:'single',comments:'قرعه با چهار امضا'});singlePage(outputPath);
     check('reports menu exports team details, optional comments and all six PDF types fit one page with all rows and four signatures');
+    const reportPreview=new BrowserWindow({show:false,webPreferences:{sandbox:true,contextIsolation:true,nodeIntegration:false}});
+    try{
+      for(const type of ['overall','standings','item','individual','team','draw']){
+        const html=reportHtml(fullStore.view(),{type,layout:'multi',disciplineId:'combined',teamId:1,drawId:fullStore.view().draws[0].id});const file=path.join(temporary,'stripe-report.html');fs.writeFileSync(file,html);await reportPreview.loadFile(file);await reportPreview.webContents.executeJavaScript('document.fonts.ready.then(()=>true)');
+        const rows=await reportPreview.webContents.executeJavaScript("Array.from(document.querySelectorAll('tbody tr'),r=>({summary:r.classList.contains('summary-row'),cells:Array.from(r.cells,c=>getComputedStyle(c).backgroundColor)}))");
+        for(let index=0;index<rows.length;index++){assert.equal(new Set(rows[index].cells).size,1);assert.equal(rows[index].cells[0],rows[index].summary?'rgb(220, 238, 221)':index%2?'rgb(230, 240, 250)':'rgb(255, 247, 230)');}
+        assert.equal(await reportPreview.webContents.executeJavaScript("getComputedStyle(document.querySelector('th')).color"),'rgb(0, 0, 0)');
+      }
+    }finally{reportPreview.destroy();}
+    check('all six report types use complete alternating rows, black headers and distinct green discipline totals');
+
     await ui("document.querySelector('[data-view=teams]').click()");
     for(const id of ['team-athlete-1','team-athlete-2'])assert.ok(await admin.webContents.executeJavaScript(`document.querySelector('label[for=${id}]').textContent.includes('عملیات ترکیبی')`));
     await ui("document.getElementById('team-athlete-1').scrollIntoView({block:'center'});await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));");

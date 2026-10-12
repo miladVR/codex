@@ -389,6 +389,16 @@
           "type": "string",
           "pattern": "^#[0-9a-fA-F]{6}$",
           "default": "#fffaf0"
+        },
+        "rowOddColor": {
+          "type": "string",
+          "pattern": "^#[0-9a-fA-F]{6}$",
+          "default": "#fff7e6"
+        },
+        "rowEvenColor": {
+          "type": "string",
+          "pattern": "^#[0-9a-fA-F]{6}$",
+          "default": "#e6f0fa"
         }
       }
     },
