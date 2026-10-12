@@ -254,6 +254,7 @@ app.whenReady().then(async () => {
       await ui("await window.scoreboardAPI.updateSettings({displayLayout:'paged'});await window.scoreboardAPI.setDisplay({mode:'item',disciplineId:'water'})");
     }
     await ui("await window.scoreboardAPI.updateSettings({displayLayout:'all'});await window.scoreboardAPI.setDisplay({mode:'standings'})");
+    await waitFor(display,"document.querySelector('.overall-table')");
     await display.webContents.executeJavaScript("updatedTeams.clear();render()");
     const assertStripes=async(window,selector)=>{const rows=await window.webContents.executeJavaScript(`Array.from(document.querySelectorAll('${selector}'),r=>({tone:r.dataset.rowTone,cells:Array.from(r.cells,c=>getComputedStyle(c).backgroundColor)}))`);assert.ok(rows.length>=2);for(let index=0;index<rows.length;index++){assert.equal(new Set(rows[index].cells).size,1,JSON.stringify(rows[index]));assert.equal(rows[index].cells[0],index%2?'rgb(230, 240, 250)':'rgb(255, 247, 230)');}return rows;};
     const stripes=await assertStripes(display,'tbody tr');assert.equal(stripes.length,22);assert.equal(stripes[11].tone,'even','Second table continues global stripe parity');
