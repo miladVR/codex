@@ -167,7 +167,7 @@ function renderTables(className,head,rows,rowHtml){
   const columns=plan().columns,split=Math.ceil(rows.length/columns),parts=[];
   for(let column=0;column<columns;column++){
     const slice=rows.slice(column*split,(column+1)*split);
-    parts.push(`<table class="${className}"><thead><tr>${head}</tr></thead><tbody>${slice.map(rowHtml).join("")}</tbody></table>`);
+    parts.push(`<table class="${className}"><thead><tr>${head}</tr></thead><tbody>${slice.map((row,index)=>rowHtml(row).replace("<tr ",`<tr data-row-tone="${(column*split+index)%2?"even":"odd"}" `)).join("")}</tbody></table>`);
   }
   document.querySelector("#standings").innerHTML=rows.length?`<div class="result-tables ${columns===2?"two-tables":""}">${parts.join("")}</div>`:'<div class="empty">هنوز شرکت‌کننده‌ای ثبت نشده است.</div>';
 }

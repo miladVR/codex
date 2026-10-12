@@ -30,7 +30,7 @@ W, H = A4
 LEFT, RIGHT, TOP, BOTTOM = 45, W - 45, H - 60, 58
 INK, MUTED, RED, LINE = map(HexColor, ["#18283e", "#566b82", "#a51d2d", "#ccd6e1"])
 c = canvas.Canvas(str(OUTPUT), pagesize=A4)
-c.setTitle("راهنمای سامانه امتیازدهی آتش‌نشانان ایمیدرو - نسخه ۱.۶.۰")
+c.setTitle("راهنمای سامانه امتیازدهی آتش‌نشانان ایمیدرو - نسخه ۱.۶.۱")
 c.setAuthor(CREDIT)
 y = TOP
 page = 1
@@ -89,7 +89,7 @@ def newpage():
     global y,page
     footer();c.showPage();page+=1;y=TOP
     c.setFillColor(MUTED);c.setFont("Zar",10)
-    drawtext("راهنمای سامانه امتیازدهی آتش‌نشانان ایمیدرو | نسخه ۱.۶.۰",RIGHT,H-31,size=10)
+    drawtext("راهنمای سامانه امتیازدهی آتش‌نشانان ایمیدرو | نسخه ۱.۶.۱",RIGHT,H-31,size=10)
 
 def ensure(height):
     if y-height<BOTTOM:newpage()
@@ -99,8 +99,8 @@ def paragraph(text,size=12.5,bold=False,indent=0,gap=6):
     font="ZarBold" if bold else "Zar";leading=size*1.75
     lines=wrap(clean(text),RIGHT-LEFT-indent,size,font)
     ensure(min(2,len(lines))*leading+gap)
-    for line in lines:
-        ensure(leading);c.setFont(font,size);c.setFillColor(INK)
+    for index,line in enumerate(lines):
+        ensure(2*leading if len(lines)-index==2 else leading);c.setFont(font,size);c.setFillColor(INK)
         drawtext(line,RIGHT-indent,y-size,font,size);y-=leading
     y-=gap
 
@@ -157,7 +157,7 @@ c.drawImage(ImageReader(str(ROOT/'assets/competition-logo.jpg')),W/2-130,H-400,2
 y=H-426
 for text in ["راهنمای نصب و استفاده", "سامانه امتیازدهی مسابقات", "آتش‌نشانان ایمیدرو"]:
     c.setFillColor(INK);drawtext(text,W/2,y,"ZarBold",27,"center");y-=46
-c.setFillColor(RED);drawtext("نسخه ۱.۶.۰ | از نصب تا پایان مسابقه",W/2,y-8,size=16,align="center")
+c.setFillColor(RED);drawtext("نسخه ۱.۶.۱ | از نصب تا پایان مسابقه",W/2,y-8,size=16,align="center")
 c.setFillColor(MUTED);drawtext("قرعه‌کشی • ثبت و تأیید نتایج • نمایش زنده • گزارش PDF",W/2,y-46,size=13,align="center")
 newpage()
 source=(ROOT/'USER_GUIDE_FA.md').read_text(encoding='utf-8').splitlines()

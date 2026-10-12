@@ -30,3 +30,10 @@ test('upgrade from v1.5.1 adopts white cream and black text while preserving all
 test('readability preview detects low contrast without preventing custom palette save',t=>{
  const {store}=fixture(t);assert.deepEqual(appearance.warnings(appearance.defaults),[]);assert.ok(appearance.contrast('#000000','#fff7e6')>18);store.updateSettings({textColor:'#ffffff'});assert.ok(appearance.warnings(store.view().settings).includes('متن روی کادر'));assert.equal(store.view().settings.textColor,'#ffffff');
 });
+
+test('row colors are validated, persisted and restored; old dark themes gain readable stripes without replacing their palette',t=>{
+ const {store,dir}=fixture(t);store.addTeam({name:'تیم'});const before=store.view();
+ for(const patch of [{rowOddColor:'#fff'},{rowEvenColor:'red'},{rowEvenColor:'#ffffff;url(x)'}]){assert.throws(()=>store.updateSettings(patch));assert.deepEqual(store.view(),before);}
+ store.updateSettings({rowOddColor:'#FCE4D6',rowEvenColor:'#DDEBF7'});const saved=store.view();assert.equal(saved.settings.rowOddColor,'#fce4d6');assert.equal(saved.settings.rowEvenColor,'#ddebf7');assert.deepEqual(new CompetitionStore(dir).view().settings,saved.settings);assert.deepEqual(validateSnapshot(saved).settings,saved.settings);
+ const legacy=store.view();delete legacy.settings.rowOddColor;delete legacy.settings.rowEvenColor;Object.assign(legacy.settings,{surfaceColor:'#102337',textColor:'#ffffff',accentColor:'#ffffff'});const theme=validateSnapshot(legacy).settings;assert.equal(theme.rowOddColor,'#102337');assert.notEqual(theme.rowOddColor,theme.rowEvenColor);assert.ok(appearance.contrast(theme.textColor,theme.rowEvenColor)>8);assert.equal(theme.surfaceColor,legacy.settings.surfaceColor);assert.deepEqual(legacy.teams,saved.teams);
+});
