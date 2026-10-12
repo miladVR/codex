@@ -133,7 +133,7 @@ app.whenReady().then(async () => {
 
     console.log('Approving result through UI...');
     await ui("document.querySelector('[data-view=approvals]').click(); document.querySelector('[data-action=approve][data-id=\"2\"]').click()");
-    await waitFor(display, "document.querySelector('tbody tr .approved')?.textContent === 'تأییدشده'");
+    await waitFor(display, "document.querySelector('tbody tr .approved')?.textContent === 'رسمی' && document.querySelector('tbody tr .approved')?.title === 'تأییدشده'");
     await waitFor(admin, "Boolean(document.querySelector('[data-action=reopen][data-id=\"2\"]'))");
     console.log('Reopening result through UI...');
     await ui("document.querySelector('[data-action=reopen][data-id=\"2\"]').click()");
