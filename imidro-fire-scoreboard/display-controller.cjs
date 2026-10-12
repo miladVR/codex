@@ -50,7 +50,7 @@ class DisplayController {
     }
     this.error = null; this.recovered = false;
     const window = new this.BrowserWindow({ show: false, width: 1280, height: 720, frame: true,
-      autoHideMenuBar: true, backgroundColor: "#030915", title: "نمایش زنده نتایج",
+      autoHideMenuBar: true, backgroundColor: "#ffffff", title: "نمایش زنده نتایج",
       webPreferences: { preload: path.join(__dirname, "preload.cjs"), contextIsolation: true,
         nodeIntegration: false, sandbox: true, backgroundThrottling: false } });
     this.window = window;

@@ -1,6 +1,6 @@
 "use strict";
 
-const {defaults:appearanceDefaults,validate:validateAppearance}=require("./src/appearance.js");
+const {defaults:appearanceDefaults,validate:validateAppearance,migrate:migrateAppearance}=require("./src/appearance.js");
 const fs = require("node:fs");
 const path = require("node:path");
 const { randomInt, randomUUID } = require("node:crypto");
@@ -496,7 +496,8 @@ class CompetitionStore {
       parsed.draws = parsed.draws.map(draw => ({ ...draw, method: draw.method ?? "auto",
         entries: draw.entries.map((entry, index) => ({ ...entry, drawOrder: entry.drawOrder ?? index + 1 })) }));
       parsed.revision ??= 0;
-      parsed.settings = { ...appearanceDefaults, eventDate:"", competitionLogo:"", sponsorLogos:[], audioVolume: 45, autoRotate: true, displayLayout: "paged", displayMode: "standings", displayDrawId: null, displayItemId: null, ...parsed.settings };
+      parsed.settings = { eventDate:"", competitionLogo:"", sponsorLogos:[], audioVolume: 45, autoRotate: true, displayLayout: "paged", displayMode: "standings", displayDrawId: null, displayItemId: null, ...parsed.settings };
+      migrateAppearance(parsed.settings);
       if (parsed.settings.displayMessage === "نتایج رسمی پس از تأیید سرداور نمایش داده می‌شوند.")
         parsed.settings.displayMessage = "نتایج زنده تا تأیید سرداور موقت هستند؛ نوبت اجرا با رتبه متفاوت است.";
       if(!["paged","all"].includes(parsed.settings.displayLayout)) parsed.settings.displayLayout="paged";

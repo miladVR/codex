@@ -180,7 +180,7 @@ app.whenReady().then(async () => {
     // Appearance is saved through the real settings form and broadcast to the hall.
     await ui("document.querySelector('[data-view=settings]').click();document.getElementById('background-mode').value='solid';document.getElementById('background-mode').dispatchEvent(new Event('input'));document.getElementById('background-start').value='#f4ecd8';document.getElementById('background-start').dispatchEvent(new Event('input'))");
     assert.equal(await admin.webContents.executeJavaScript("document.getElementById('background-end').disabled"),true);
-    assert.equal(store.view().settings.backgroundMode,'gradient','Preview must not mutate persisted settings');
+    assert.equal(store.view().settings.backgroundMode,'solid','Preview must not mutate persisted settings');
     await ui("document.getElementById('save-settings').click()");
     await waitFor(display,"document.body.style.backgroundColor==='rgb(244, 236, 216)'");
     assert.equal(new CompetitionStore(path.join(temporary,'competition')).view().settings.backgroundStart,'#f4ecd8');
@@ -195,6 +195,28 @@ app.whenReady().then(async () => {
     await ui("document.getElementById('background-preset').value='navy';document.getElementById('background-preset').dispatchEvent(new Event('change'));document.getElementById('save-settings').click()");
     await waitFor(display,"document.body.style.backgroundImage.includes('135deg')");
     check('solid and gradient preview, presets, disabled solid controls, durable save and both live windows; compact readable buttons');
+    await ui("document.getElementById('appearance-reset').click();document.getElementById('appearance-fontFamily').value='tahoma';document.getElementById('appearance-fontFamily').dispatchEvent(new Event('input'));document.getElementById('appearance-adminFontSize').value='20';document.getElementById('appearance-hallFontMax').value='40';document.getElementById('appearance-textColor').value='#123456';document.getElementById('appearance-buttonColor').value='#aabbcc';document.getElementById('appearance-successColor').value='#ccf0cc';document.getElementById('appearance-dangerColor').value='#f0cccc';document.getElementById('appearance-fontWeight').value='700';document.getElementById('appearance-numberFont').value='same';document.getElementById('appearance-buttonSize').value='comfortable';document.getElementById('appearance-textColor').dispatchEvent(new Event('input'))");
+    assert.equal(store.view().settings.textColor,'#ffffff','Preview must not save custom colors');
+    await ui("document.getElementById('save-appearance').click()");
+    await waitFor(display,"getComputedStyle(document.body).fontFamily.startsWith('Tahoma') && getComputedStyle(document.body).color==='rgb(18, 52, 86)'");
+    await waitFor(admin,"getComputedStyle(document.querySelector('.btn.primary')).backgroundColor==='rgb(170, 187, 204)'");
+    const custom=new CompetitionStore(path.join(temporary,'competition')).view().settings;assert.equal(custom.adminFontSize,20);assert.equal(custom.hallFontMax,40);assert.equal(custom.successColor,'#ccf0cc');assert.equal(custom.dangerColor,'#f0cccc');assert.equal(custom.numberFont,'same');assert.equal(custom.buttonSize,'comfortable');
+    assert.ok(await admin.webContents.executeJavaScript("Array.from(document.querySelectorAll('.btn')).every(b=>b.getBoundingClientRect().height>=44)"));
+    await ui("document.getElementById('appearance-textColor').value='#ffffff';document.getElementById('appearance-textColor').dispatchEvent(new Event('input'))");
+    assert.ok((await admin.webContents.executeJavaScript("document.getElementById('appearance-warning').textContent")).includes('خوانایی کم'));assert.equal(store.view().settings.textColor,'#123456');
+    const teamsBeforeAppearanceReset=store.view().teams;
+    await ui("document.getElementById('appearance-reset').click()");assert.equal(store.view().settings.textColor,'#123456');
+    await ui("document.getElementById('save-appearance').click()");
+    await waitFor(display,"document.body.style.backgroundColor==='rgb(255, 255, 255)' && getComputedStyle(document.querySelector('.table-panel')).backgroundColor==='rgb(255, 247, 230)' && getComputedStyle(document.body).color==='rgb(0, 0, 0)'");
+    assert.deepEqual(store.view().teams,teamsBeforeAppearanceReset);
+    await waitFor(admin,"getComputedStyle(document.querySelector('.card')).backgroundColor==='rgb(255, 247, 230)' && getComputedStyle(document.querySelector('.btn')).color==='rgb(0, 0, 0)'");
+    admin.show();await delay(200);
+    fs.writeFileSync(path.join(out,'appearance-complete-settings.png'),(await admin.webContents.capturePage()).toPNG());
+    await ui("document.querySelector('[data-view=dashboard]').click()");await delay(150);
+    fs.writeFileSync(path.join(out,'white-cream-admin.png'),(await admin.webContents.capturePage()).toPNG());
+    fs.writeFileSync(path.join(out,'white-cream-hall.png'),(await display.webContents.capturePage()).toPNG());
+    check('white page, cream surfaces and black text; independent font, sizes, weights, button palette and touch size persist; contrast preview and appearance-only reset preserve competition');
+
     // Regression for the reported ten-team case: all ten fit on a single page.
     const smallStore=new CompetitionStore(path.join(temporary,'ten-team-layout'));
     for(let id=1;id<=10;id++)smallStore.addTeam({name:`تیم نمایشی ${id}`});
@@ -253,6 +275,19 @@ app.whenReady().then(async () => {
         fs.writeFileSync(path.join(out,`populated-${mode}-${layout}-${width}.png`),(await display.webContents.capturePage()).toPNG());
       }
     }
+
+    for(const [width,height] of [[1280,720],[1920,1080]]){
+      display.setSize(width,height);await delay(100);
+      for(const [mode,layout] of [['individual','paged'],['individual','all'],['item','all'],['standings','all']]){
+        const fixture={...fullStore.view(),revision:++fullRevision};fixture.settings={...fixture.settings,fontFamily:'tahoma',hallFontMax:44,fontWeight:700,numberFont:'same',displayMode:mode,displayItemId:mode==='item'?'combined':null,displayLayout:layout,autoRotate:false};
+        await display.webContents.executeJavaScript(`receive(${JSON.stringify(fixture)})`);
+        await assertTableFit(mode==='individual'?(layout==='all'?44:22):22,layout==='all'?2:1,layout==='all'?1:2);
+        assert.equal(await display.webContents.executeJavaScript("Array.from(document.querySelectorAll('td.record')).filter(c=>c.scrollWidth>c.clientWidth+2).length"),0);
+        assert.ok(await display.webContents.executeJavaScript("Array.from(document.querySelectorAll('tbody td')).every(c=>getComputedStyle(c).color==='rgb(0, 0, 0)')"));
+        fs.writeFileSync(path.join(out,`tahoma-${mode}-${layout}-${width}.png`),(await display.webContents.capturePage()).toPNG());
+      }
+    }
+    check('Tahoma bold and 44px hall ceiling fit populated 22-team/44-athlete modes at 720p/1080p with black text and complete time digits');
     const drawFixture={...fullStore.view(),revision:++fullRevision};drawFixture.settings={...drawFixture.settings,displayMode:'draw',displayDrawId:fullStore.view().draws[0].id,displayLayout:'all',autoRotate:false};
     await display.webContents.executeJavaScript(`receive(${JSON.stringify(drawFixture)})`);await waitFor(display,"document.querySelectorAll('.draw-ticket').length===22");await delay(150);
     assert.ok(await display.webContents.executeJavaScript("Array.from(document.querySelectorAll('.draw-ticket .full-name')).every(n=>n.textContent.includes('خلیج فارس')&&getComputedStyle(n).textOverflow!=='ellipsis')"));

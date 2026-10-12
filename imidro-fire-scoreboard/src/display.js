@@ -75,7 +75,7 @@ function render() {
   const total=isDraw()?currentDraw().entries.length:activeRows().length;
   document.querySelector("#page-info").textContent = `صفحه ${number(page + 1)} از ${number(pages())} · ${number(total)} ${isIndividual()?"ورزشکار":"تیم"}`;
   document.querySelector("#table-title").textContent = isDraw() ? currentDraw().title : isIndividual() ? "عملیات ترکیبی — رده‌بندی انفرادی" : isItem() ? currentItem().name : "رده‌بندی کل مسابقات — زنده";
-  document.querySelector("#table-subtitle").textContent = isDraw() ? "شماره آبی = نوبت حضور؛ رتبه نیست" : "نوبت اجرا: آبی ثابت | رتبه امتیازی: طلایی متغیر";
+  document.querySelector("#table-subtitle").textContent = isDraw() ? "شماره نوبت = ترتیب حضور؛ رتبه نیست" : "نوبت اجرا: ثابت | رتبه امتیازی: متغیر";
   renderPodium();
   if (isDraw()) renderDraw(); else if (isIndividual()) renderIndividual(); else if (isItem()) renderItem(); else renderStandings();
   document.querySelector("#pause-pages").textContent = rotationEnabled() ? "توقف گردش" : "ادامه گردش";
@@ -98,10 +98,11 @@ function fitPage() {
   } else {
     const tables=Array.from(area.querySelectorAll("table"));if(!tables.length)return;
     const rows=Math.max(...tables.map(table=>table.tBodies[0].rows.length),1);
+    area.dataset.dense=String(rows>=20);
     const head=Math.max(...tables.map(table=>table.tHead.getBoundingClientRect().height));
     const rowHeight=Math.max(16,Math.floor((area.clientHeight-head-4)/rows));
     area.style.setProperty("--row-height",`${rowHeight}px`);
-    area.style.setProperty("--table-font",`${Math.max(12,Math.min(state.settings.displayTextSize==="standard"?26:34,Math.floor(rowHeight*(state.settings.displayTextSize==="standard"?.7:.82))))}px`);
+    area.style.setProperty("--table-font",`${Math.max(12,Math.min(state.settings.displayTextSize==="standard"?Math.min(26,state.settings.hallFontMax):state.settings.hallFontMax,Math.floor(rowHeight*(state.settings.displayTextSize==="standard"?.7:.82))))}px`);
     area.style.setProperty("--badge-size",`${Math.max(14,Math.min(32,rowHeight-4))}px`);
   }
   fitNames();
@@ -124,7 +125,7 @@ function fitNames(nonTableOnly=false){
     const draw=viewport.closest(".draw-ticket");
     const height=row?Math.max(13,parseFloat(getComputedStyle(document.getElementById("standings")).getPropertyValue("--row-height"))-4):draw?Math.max(13,draw.clientHeight-32):28;
     viewport.style.height=`${height}px`;
-    const max=Math.max(12,Math.min(34,parseFloat(getComputedStyle(viewport.parentElement).fontSize)||20));
+    const max=Math.max(12,Math.min(state.settings.hallFontMax,parseFloat(getComputedStyle(viewport.parentElement).fontSize)||20));
     text.style.whiteSpace="normal";text.style.width="auto";
     let size=max;
     for(;size>12;size-=.5){text.style.fontSize=`${size}px`;if(text.scrollHeight<=height&&text.scrollWidth<=viewport.clientWidth+1)break;}

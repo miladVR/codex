@@ -260,17 +260,17 @@
             "solid",
             "gradient"
           ],
-          "default": "gradient"
+          "default": "solid"
         },
         "backgroundStart": {
           "type": "string",
           "pattern": "^#[0-9a-fA-F]{6}$",
-          "default": "#07111f"
+          "default": "#ffffff"
         },
         "backgroundEnd": {
           "type": "string",
           "pattern": "^#[0-9a-fA-F]{6}$",
-          "default": "#18364b"
+          "default": "#fff7e6"
         },
         "backgroundAngle": {
           "type": "integer",
@@ -284,6 +284,111 @@
             "large"
           ],
           "default": "large"
+        },
+        "appearanceVersion": {
+          "const": 2
+        },
+        "fontFamily": {
+          "enum": [
+            "zar",
+            "tahoma",
+            "arial",
+            "custom"
+          ],
+          "default": "zar"
+        },
+        "customFont": {
+          "type": "string",
+          "maxLength": 80,
+          "pattern": "^[A-Za-z0-9 _\\-\\u0600-\\u06ff]*$"
+        },
+        "adminFontSize": {
+          "type": "integer",
+          "minimum": 16,
+          "maximum": 24,
+          "default": 18
+        },
+        "hallFontMax": {
+          "type": "integer",
+          "minimum": 18,
+          "maximum": 44,
+          "default": 34
+        },
+        "fontWeight": {
+          "enum": [
+            400,
+            700
+          ],
+          "default": 400
+        },
+        "numberFont": {
+          "enum": [
+            "monospace",
+            "same"
+          ],
+          "default": "monospace"
+        },
+        "buttonSize": {
+          "enum": [
+            "compact",
+            "comfortable"
+          ],
+          "default": "compact"
+        },
+        "textColor": {
+          "type": "string",
+          "pattern": "^#[0-9a-fA-F]{6}$",
+          "default": "#000000"
+        },
+        "mutedColor": {
+          "type": "string",
+          "pattern": "^#[0-9a-fA-F]{6}$",
+          "default": "#000000"
+        },
+        "accentColor": {
+          "type": "string",
+          "pattern": "^#[0-9a-fA-F]{6}$",
+          "default": "#000000"
+        },
+        "surfaceColor": {
+          "type": "string",
+          "pattern": "^#[0-9a-fA-F]{6}$",
+          "default": "#fff7e6"
+        },
+        "inputColor": {
+          "type": "string",
+          "pattern": "^#[0-9a-fA-F]{6}$",
+          "default": "#fffdf7"
+        },
+        "borderColor": {
+          "type": "string",
+          "pattern": "^#[0-9a-fA-F]{6}$",
+          "default": "#d7cab4"
+        },
+        "buttonColor": {
+          "type": "string",
+          "pattern": "^#[0-9a-fA-F]{6}$",
+          "default": "#f1dfbe"
+        },
+        "buttonTextColor": {
+          "type": "string",
+          "pattern": "^#[0-9a-fA-F]{6}$",
+          "default": "#000000"
+        },
+        "successColor": {
+          "type": "string",
+          "pattern": "^#[0-9a-fA-F]{6}$",
+          "default": "#d4edda"
+        },
+        "dangerColor": {
+          "type": "string",
+          "pattern": "^#[0-9a-fA-F]{6}$",
+          "default": "#f8d7da"
+        },
+        "neutralColor": {
+          "type": "string",
+          "pattern": "^#[0-9a-fA-F]{6}$",
+          "default": "#fffaf0"
         }
       }
     },
