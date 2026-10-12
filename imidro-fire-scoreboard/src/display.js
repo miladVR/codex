@@ -105,11 +105,21 @@ function fitPage() {
     area.style.setProperty("--table-font",`${Math.max(12,Math.min(state.settings.displayTextSize==="standard"?Math.min(26,state.settings.hallFontMax):state.settings.hallFontMax,Math.floor(rowHeight*(state.settings.displayTextSize==="standard"?.7:.82))))}px`);
     area.style.setProperty("--badge-size",`${Math.max(14,Math.min(32,rowHeight-4))}px`);
   }
+  const canvas=document.createElement('canvas'),measure=canvas.getContext('2d');
   const fitRecords=()=>{
-    // Preserve complete time digits in narrow columns.
-    for(const cell of area.querySelectorAll('td.record')){
-      const target=cell.querySelector('.pair-record')||cell;target.style.removeProperty('font-size');let size=parseFloat(getComputedStyle(target).fontSize);
-      while(size>12&&cell.scrollWidth>cell.clientWidth+1){size-=.5;target.style.fontSize=`${Math.max(12,size)}px`;}
+    // Table-cell scrollWidth can hide clipped left-side RTL content. Measure
+    // the complete glyph advances instead, including status and penalty text.
+    for(const cell of area.querySelectorAll('td:not(.team)')){
+      if(cell.querySelector('.rank,.turn,.slot-badge'))continue;
+      const pair=cell.querySelector('.pair-record'),target=pair||cell.querySelector('.result-status')||cell;
+      target.style.removeProperty('font-size');const parts=pair?Array.from(pair.children):[target];
+      const cellStyle=getComputedStyle(cell),targetStyle=getComputedStyle(target);
+      const padding=Number.parseFloat(cellStyle.paddingLeft)+Number.parseFloat(cellStyle.paddingRight)+(target===cell?0:Number.parseFloat(targetStyle.paddingLeft)+Number.parseFloat(targetStyle.paddingRight));
+      const available=Math.max(1,cell.clientWidth-padding-1);
+      const width=()=>Math.max(...parts.map(node=>{const s=getComputedStyle(node);measure.font=`${s.fontStyle} ${s.fontWeight} ${s.fontSize} ${s.fontFamily}`;return measure.measureText(node.textContent.trim()).width;}));
+      let high=parseFloat(targetStyle.fontSize);if(width()<=available||high<=12)continue;
+      let low=12;for(let i=0;i<10;i++){const mid=(low+high)/2;target.style.fontSize=`${mid}px`;if(width()<=available)low=mid;else high=mid;}
+      target.style.fontSize=`${Math.floor(low*2)/2}px`;
     }
   };
   fitNames();fitRecords();

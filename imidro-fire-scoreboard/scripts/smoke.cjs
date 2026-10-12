@@ -284,6 +284,9 @@ app.whenReady().then(async () => {
         await display.webContents.executeJavaScript(`receive(${JSON.stringify(fixture)})`);
         await assertTableFit(mode==='individual'?(layout==='all'?44:22):22,layout==='all'?2:1,layout==='all'?1:2);
         assert.equal(await display.webContents.executeJavaScript("Array.from(document.querySelectorAll('td.record')).filter(c=>c.scrollWidth>c.clientWidth+2).length"),0);
+        const cutText=await display.webContents.executeJavaScript(`(()=>{const c=document.createElement('canvas').getContext('2d');return Array.from(document.querySelectorAll('tbody td:not(.team)')).filter(td=>!td.querySelector('.rank,.turn,.slot-badge')).flatMap(td=>{const target=td.querySelector('.pair-record,.result-status')||td,parts=target.classList.contains('pair-record')?Array.from(target.children):[target],s=getComputedStyle(td),t=getComputedStyle(target),available=td.clientWidth-parseFloat(s.paddingLeft)-parseFloat(s.paddingRight)-(target===td?0:parseFloat(t.paddingLeft)+parseFloat(t.paddingRight));return parts.filter(p=>{const s=getComputedStyle(p);c.font=s.fontStyle+' '+s.fontWeight+' '+s.fontSize+' '+s.fontFamily;return c.measureText(p.textContent.trim()).width>available+1;}).map(p=>({text:p.textContent,font:getComputedStyle(p).fontSize,available}));});})()`);
+        assert.deepEqual(cutText,[],'All full time, penalty and status strings must fit, not just the clipped table-cell box');
+
         assert.ok(await display.webContents.executeJavaScript("Array.from(document.querySelectorAll('tbody td')).every(c=>getComputedStyle(c).color==='rgb(0, 0, 0)')"));
         fs.writeFileSync(path.join(out,`tahoma-${mode}-${layout}-${width}.png`),(await display.webContents.capturePage()).toPNG());
       }
