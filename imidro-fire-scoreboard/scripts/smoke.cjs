@@ -258,12 +258,13 @@ app.whenReady().then(async () => {
     await display.webContents.executeJavaScript("updatedTeams.clear();render()");
     const assertStripes=async(window,selector)=>{const rows=await window.webContents.executeJavaScript(`Array.from(document.querySelectorAll('${selector}'),r=>({tone:r.dataset.rowTone,cells:Array.from(r.cells,c=>getComputedStyle(c).backgroundColor)}))`);assert.ok(rows.length>=2);for(let index=0;index<rows.length;index++){assert.equal(new Set(rows[index].cells).size,1,JSON.stringify(rows[index]));assert.equal(rows[index].cells[0],index%2?'rgb(230, 240, 250)':'rgb(255, 247, 230)');}return rows;};
     const stripes=await assertStripes(display,'tbody tr');assert.equal(stripes.length,22);assert.equal(stripes[11].tone,'even','Second table continues global stripe parity');
+    await assertTableFit(22,2,1);
     fs.writeFileSync(path.join(out,'striped-team-hall.png'),(await display.webContents.capturePage()).toPNG());
     await display.webContents.executeJavaScript("highlightUntil=Date.now()+4000;updatedTeams.add(state.liveStandings[0].team.id);render()");
     assert.ok(await display.webContents.executeJavaScript("Array.from(document.querySelector('tr.updated').cells).every(c=>getComputedStyle(c).backgroundColor==='rgb(241, 223, 190)')"));
     await display.webContents.executeJavaScript("updatedTeams.clear();render()");await assertStripes(display,'tbody tr');
     await ui("document.querySelector('[data-view=dashboard]').click()");await assertStripes(admin,'.table-wrap tbody tr');
-    admin.show();await delay(100);fs.writeFileSync(path.join(out,'striped-team-admin.png'),(await admin.webContents.capturePage()).toPNG());admin.hide();
+    admin.show();await admin.webContents.executeJavaScript("document.querySelector('.table-wrap').scrollIntoView({block:'start'});new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))");await delay(100);fs.writeFileSync(path.join(out,'striped-team-admin.png'),(await admin.webContents.capturePage()).toPNG());admin.hide();
     await ui("await window.scoreboardAPI.updateSettings({displayLayout:'paged'});await window.scoreboardAPI.setDisplay({mode:'item',disciplineId:'water'})");
     check('whole rows alternate cream and blue in admin and both hall tables; updated rows remain highlighted then recover their stripe');
     check('22 teams and 44 athletes fit exactly two pages at 720p and 1080p; all 44 fit one page without missing or duplicate athletes; colored assignments are distinct');
