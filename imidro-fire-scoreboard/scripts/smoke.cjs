@@ -215,6 +215,7 @@ app.whenReady().then(async () => {
     await ui("document.querySelector('[data-view=dashboard]').click()");await delay(150);
     fs.writeFileSync(path.join(out,'white-cream-admin.png'),(await admin.webContents.capturePage()).toPNG());
     fs.writeFileSync(path.join(out,'white-cream-hall.png'),(await display.webContents.capturePage()).toPNG());
+    admin.hide();await delay(100); // Keep the hall unoccluded while awaiting animation frames in layout probes.
     check('white page, cream surfaces and black text; independent font, sizes, weights, button palette and touch size persist; contrast preview and appearance-only reset preserve competition');
 
     // Regression for the reported ten-team case: all ten fit on a single page.
