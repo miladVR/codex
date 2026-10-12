@@ -100,19 +100,29 @@ function fitPage() {
     const rows=Math.max(...tables.map(table=>table.tBodies[0].rows.length),1);
     area.dataset.dense=String(rows>=20);
     const head=Math.max(...tables.map(table=>table.tHead.getBoundingClientRect().height));
-    const rowHeight=Math.max(16,Math.floor((area.clientHeight-head-4)/rows));
+    const rowHeight=Math.max(14,Math.floor((area.clientHeight-head-4)/rows));
     area.style.setProperty("--row-height",`${rowHeight}px`);
     area.style.setProperty("--table-font",`${Math.max(12,Math.min(state.settings.displayTextSize==="standard"?Math.min(26,state.settings.hallFontMax):state.settings.hallFontMax,Math.floor(rowHeight*(state.settings.displayTextSize==="standard"?.7:.82))))}px`);
     area.style.setProperty("--badge-size",`${Math.max(14,Math.min(32,rowHeight-4))}px`);
   }
-  fitNames();
-  // Preserve complete time digits in narrow columns while using larger text
-  // wherever the available cell width permits it.
-  for(const cell of area.querySelectorAll('td.record')){
-    const target=cell.querySelector('.pair-record')||cell;
-    target.style.removeProperty('font-size');
-    let size=parseFloat(getComputedStyle(target).fontSize);
-    while(size>12&&cell.scrollWidth>cell.clientWidth+1){size-=.5;target.style.fontSize=`${Math.max(12,size)}px`;}
+  const fitRecords=()=>{
+    // Preserve complete time digits in narrow columns.
+    for(const cell of area.querySelectorAll('td.record')){
+      const target=cell.querySelector('.pair-record')||cell;target.style.removeProperty('font-size');let size=parseFloat(getComputedStyle(target).fontSize);
+      while(size>12&&cell.scrollWidth>cell.clientWidth+1){size-=.5;target.style.fontSize=`${Math.max(12,size)}px`;}
+    }
+  };
+  fitNames();fitRecords();
+  if(!isDraw()){
+    // Different installed fonts and bold weights have different badge baselines.
+    // Measure the finished tables, then reduce only as much as needed to fit.
+    const tables=Array.from(area.querySelectorAll('table'));
+    for(let attempt=0;attempt<8&&tables.some(t=>t.getBoundingClientRect().bottom>area.getBoundingClientRect().bottom-1);attempt++){
+      const font=parseFloat(area.style.getPropertyValue('--table-font')),badge=parseFloat(area.style.getPropertyValue('--badge-size'));
+      if(font<=12&&badge<=12)break;
+      area.style.setProperty('--table-font',`${Math.max(12,font-.5)}px`);area.style.setProperty('--badge-size',`${Math.max(12,badge-.5)}px`);
+      fitNames();fitRecords();
+    }
   }
 }
 function fullName(text){return `<span class="name-viewport"><span class="full-name">${escapeHtml(text)}</span></span>`;}

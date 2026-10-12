@@ -48,3 +48,6 @@ body:not(.hall-display)[data-appearance="2"] .field input[type=range]{padding:0}
 [data-appearance="2"] :is(.time-part select,.time-separator,.result-preview strong){font-family:var(--number-font)}
 
 .appearance-card .appearance-settings{border:0;margin:0;padding:0}.appearance-settings .form-grid{grid-template-columns:repeat(auto-fit,minmax(230px,1fr))}
+/* Numeric font selection covers badges, clocks and counters as well as times. */
+[data-appearance="2"] :is(.rank,.turn,.slot-badge b,.medal,.metric b,.clock strong,.score strong,.draw-ticket strong){font-family:var(--number-font)}
+[data-appearance="2"] .draw-ticket .turn{min-width:42px;height:42px;font-size:24px;line-height:1.2}
