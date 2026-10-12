@@ -277,15 +277,19 @@ app.whenReady().then(async () => {
       }
     }
 
+    const mixedPath=path.join(temporary,'mixed-status-layout');fs.mkdirSync(mixedPath);fullStore.exportSnapshot(path.join(mixedPath,'competition-data.json'));const mixedStore=new CompetitionStore(mixedPath);
+    mixedStore.approveResult({resultId:mixedStore.view().results.find(r=>r.teamId===1&&r.disciplineId==='combined').id});
+    for(const [teamId,round]of [[22,2],[21,1],[21,2]]){const score=mixedStore.view().roundScores.find(r=>r.teamId===teamId&&r.round===round);const review=mixedStore.prepareDeletion({kind:'round',id:score.id});mixedStore.deletionChallenges.get(review.token).readyAt=0;mixedStore.confirmDeletion({token:review.token,confirmation:'تایید'});}
     for(const [width,height] of [[1280,720],[1920,1080]]){
       display.setSize(width,height);await delay(100);
       for(const [mode,layout] of [['individual','paged'],['individual','all'],['item','all'],['standings','all']]){
-        const fixture={...fullStore.view(),revision:++fullRevision};fixture.settings={...fixture.settings,fontFamily:'tahoma',hallFontMax:44,fontWeight:700,numberFont:'same',displayMode:mode,displayItemId:mode==='item'?'combined':null,displayLayout:layout,autoRotate:false};
+        const fixture={...mixedStore.view(),revision:++fullRevision};fixture.settings={...fixture.settings,fontFamily:'tahoma',hallFontMax:44,fontWeight:700,numberFont:'same',displayMode:mode,displayItemId:mode==='item'?'combined':null,displayLayout:layout,autoRotate:false};
         await display.webContents.executeJavaScript(`receive(${JSON.stringify(fixture)})`);
         await assertTableFit(mode==='individual'?(layout==='all'?44:22):22,layout==='all'?2:1,layout==='all'?1:2);
         assert.equal(await display.webContents.executeJavaScript("Array.from(document.querySelectorAll('td.record')).filter(c=>c.scrollWidth>c.clientWidth+2).length"),0);
         const cutText=await display.webContents.executeJavaScript(`(()=>{const c=document.createElement('canvas').getContext('2d');return Array.from(document.querySelectorAll('tbody td:not(.team)')).filter(td=>!td.querySelector('.rank,.turn,.slot-badge')).flatMap(td=>{const target=td.querySelector('.pair-record,.result-status')||td,parts=target.classList.contains('pair-record')?Array.from(target.children):[target],s=getComputedStyle(td),t=getComputedStyle(target),available=td.clientWidth-parseFloat(s.paddingLeft)-parseFloat(s.paddingRight)-(target===td?0:parseFloat(t.paddingLeft)+parseFloat(t.paddingRight));return parts.filter(p=>{const s=getComputedStyle(p);c.font=s.fontStyle+' '+s.fontWeight+' '+s.fontSize+' '+s.fontFamily;return c.measureText(p.textContent.trim()).width>available+1;}).map(p=>({text:p.textContent,font:getComputedStyle(p).fontSize,available}));});})()`);
         assert.deepEqual(cutText,[],'All full time, penalty and status strings must fit, not just the clipped table-cell box');
+        if(mode==='item'){const statuses=await display.webContents.executeJavaScript("Array.from(document.querySelectorAll('.result-status'),s=>s.textContent)");for(const label of ['رسمی','موقت','ناقص','خالی'])assert.ok(statuses.includes(label),statuses.join(','));}
 
         assert.ok(await display.webContents.executeJavaScript("Array.from(document.querySelectorAll('tbody td')).every(c=>getComputedStyle(c).color==='rgb(0, 0, 0)')"));
         fs.writeFileSync(path.join(out,`tahoma-${mode}-${layout}-${width}.png`),(await display.webContents.capturePage()).toPNG());
