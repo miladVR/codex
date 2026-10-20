@@ -190,7 +190,7 @@ app.whenReady().then(async () => {
     await delay(150);
     fs.writeFileSync(path.join(out,'appearance-settings.png'),(await admin.webContents.capturePage()).toPNG());
     fs.writeFileSync(path.join(out,'appearance-light-hall.png'),(await display.webContents.capturePage()).toPNG());
-    const sizes=await admin.webContents.executeJavaScript("Array.from(document.querySelectorAll('.btn'),b=>({height:b.getBoundingClientRect().height,font:parseFloat(getComputedStyle(b).fontSize)}))");
+    const sizes=await admin.webContents.executeJavaScript("Array.from(document.querySelectorAll('.btn')).filter(b=>b.getClientRects().length).map(b=>({height:b.getBoundingClientRect().height,font:parseFloat(getComputedStyle(b).fontSize)}))");
     assert.ok(sizes.every(b=>b.font<=16&&b.height>=36),JSON.stringify(sizes));
     await ui("document.getElementById('background-preset').value='navy';document.getElementById('background-preset').dispatchEvent(new Event('change'));document.getElementById('save-settings').click()");
     await waitFor(display,"document.body.style.backgroundImage.includes('135deg')");
@@ -201,7 +201,7 @@ app.whenReady().then(async () => {
     await waitFor(display,"getComputedStyle(document.body).fontFamily.startsWith('Tahoma') && getComputedStyle(document.body).color==='rgb(18, 52, 86)'");
     await waitFor(admin,"getComputedStyle(document.querySelector('.btn.primary')).backgroundColor==='rgb(170, 187, 204)'");
     const custom=new CompetitionStore(path.join(temporary,'competition')).view().settings;assert.equal(custom.rowOddColor,'#fce4d6');assert.equal(custom.rowEvenColor,'#ddebf7');assert.equal(custom.adminFontSize,20);assert.equal(custom.hallFontMax,40);assert.equal(custom.successColor,'#ccf0cc');assert.equal(custom.dangerColor,'#f0cccc');assert.equal(custom.numberFont,'same');assert.equal(custom.buttonSize,'comfortable');
-    assert.ok(await admin.webContents.executeJavaScript("Array.from(document.querySelectorAll('.btn')).every(b=>b.getBoundingClientRect().height>=44)"));
+    assert.ok(await admin.webContents.executeJavaScript("Array.from(document.querySelectorAll('.btn')).filter(b=>b.getClientRects().length).every(b=>b.getBoundingClientRect().height>=44)"));
     await ui("document.getElementById('appearance-textColor').value='#ffffff';document.getElementById('appearance-textColor').dispatchEvent(new Event('input'))");
     assert.ok((await admin.webContents.executeJavaScript("document.getElementById('appearance-warning').textContent")).includes('خوانایی کم'));assert.equal(store.view().settings.textColor,'#123456');
     const teamsBeforeAppearanceReset=store.view().teams;
@@ -589,9 +589,53 @@ app.whenReady().then(async () => {
     await assert.rejects(display.webContents.executeJavaScript("window.scoreboardAPI.prepareRestore()"),/مدیریت/);
     assert.deepEqual(new CompetitionStore(path.join(temporary,'competition')).view(),restored);
     check('real JSON restore after full reset retains photos, all scores, frozen lanes, draws and settings; both cancellation steps preserve data and hall cannot restore');
+    // Version 1.7 operational changes use actual controls and production IPC.
+    admin.show();admin.setSize(1280,720);await delay(100);
+    await ui("document.querySelector('[data-view=entry]').click()");
+    for(const id of ['scientific','combined','water','rescue_skill','height']){
+      await ui(`document.getElementById('discipline').value='${id}';document.getElementById('discipline').dispatchEvent(new Event('change'));document.getElementById('note').scrollIntoView({block:'center'});await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)))`);
+      const toolbar=await admin.webContents.executeJavaScript("(()=>{const b=id=>document.getElementById(id).getBoundingClientRect();return {buttons:document.querySelectorAll('#save-result').length,judges:document.querySelectorAll('#judge').length,judge:b('judge').top,save:b('save-result').top,preview:b('preview').bottom,height:innerHeight,header:document.querySelector('main>header').getBoundingClientRect().bottom};})()");
+      assert.equal(toolbar.buttons,1);assert.equal(toolbar.judges,1);assert.ok(toolbar.save>=toolbar.header&&toolbar.preview<toolbar.height,JSON.stringify(toolbar));assert.ok(Math.abs(toolbar.judge-toolbar.save)<70,JSON.stringify(toolbar));
+    }
+    fs.writeFileSync(path.join(out,'entry-save-preview-top.png'),(await admin.webContents.capturePage()).toPNG());
+    check('save, judge and computed preview stay together and visible without returning to the form bottom in all five entry modes');
+    await ui("document.querySelector('[data-view=settings]').click();const canvas=document.createElement('canvas');canvas.width=40;canvas.height=40;const c=canvas.getContext('2d');c.fillStyle='#1870aa';c.fillRect(0,0,40,40);const bytes=Uint8Array.from(atob(canvas.toDataURL('image/png').split(',')[1]),c=>c.charCodeAt(0));const transfer=new DataTransfer();transfer.items.add(new File([bytes],'left-logo.png',{type:'image/png'}));document.getElementById('secondary-logo-file').files=transfer.files;document.getElementById('save-settings').click()");
+    await waitFor(display,"!document.querySelector('.secondary-logo').hidden&&document.querySelector('.secondary-logo').naturalWidth===40");
+    const leftLogo=store.view().settings.secondaryLogo;assert.equal(new CompetitionStore(path.join(temporary,'competition')).view().settings.secondaryLogo,leftLogo);
+    await ui("document.getElementById('discipline-details').open=true;document.querySelectorAll('[data-discipline-config]')[5].scrollIntoView({block:'start'});document.getElementById('discipline-enabled-emergency_scientific').checked=true;document.getElementById('discipline-count-emergency_scientific').value='2';document.getElementById('discipline-max-emergency_scientific').value='20';document.getElementById('discipline-aggregation-emergency_scientific').value='average';document.getElementById('discipline-enabled-emergency_operational').checked=true;document.getElementById('discipline-count-emergency_operational').value='1';document.getElementById('discipline-name-water').value='آبرسانی — معیار رفع تساوی';document.getElementById('save-disciplines').click()");
+    await waitFor(admin,"state.disciplines.length===7");assert.equal(store.view().disciplines.length,7);
+    assert.deepEqual(await admin.webContents.executeJavaScript("Array.from(document.querySelectorAll('.discipline-settings input,.discipline-settings select,.discipline-settings button:not(.help-icon)')).filter(n=>!n.dataset.helpAttached).map(n=>n.id)"),[]);
+    check('independent left/right branding and real discipline settings activate seven items, rename water and persist through restart');
+    await ui("document.querySelector('[data-view=entry]').click();document.getElementById('discipline').value='emergency_scientific';document.getElementById('discipline').dispatchEvent(new Event('change'));document.getElementById('team').value='1';document.getElementById('team').dispatchEvent(new Event('change'))");
+    for(const [slot,score]of [[1,10],[2,20]]){
+      await ui(`document.getElementById('scientific-slot').value='${slot}';document.getElementById('scientific-slot').dispatchEvent(new Event('change'));document.getElementById('scientific-name').value='امدادگر ${slot}';document.getElementById('scientific-score').value='${score}';document.getElementById('scientific-score').dispatchEvent(new Event('input'));document.getElementById('save-result').click()`);
+      await waitFor(admin,`state.results.find(r=>r.teamId===1&&r.disciplineId==='emergency_scientific')?.scientificEntries?.length===${slot}`);
+    }
+    assert.equal(store.view().itemLeaderboards.emergency_scientific[0].finalValue,15);
+    await ui("document.getElementById('discipline').value='emergency_operational';document.getElementById('discipline').dispatchEvent(new Event('change'));document.getElementById('primary-m').value='0';document.getElementById('primary-s').value='50';document.getElementById('primary-h').value='0';document.getElementById('penalty').value='2';document.getElementById('athlete-primary').value='امدادگر عملیاتی';document.getElementById('primary-s').dispatchEvent(new Event('input'));document.getElementById('save-result').click()");
+    await waitFor(admin,"state.results.some(r=>r.teamId===1&&r.disciplineId==='emergency_operational')");assert.equal(store.view().itemLeaderboards.emergency_operational[0].finalValue,52000);
+    const emergencyBefore=store.view();await ui("document.querySelector('[data-view=settings]').click();document.getElementById('discipline-details').open=true;document.getElementById('discipline-enabled-emergency_scientific').checked=false;document.getElementById('discipline-enabled-emergency_operational').checked=false;document.getElementById('save-disciplines').click()");await waitFor(admin,"state.disciplines.length===5");
+    assert.deepEqual(store.view().results,emergencyBefore.results);assert.deepEqual(store.view().participantProfiles,emergencyBefore.participantProfiles);
+    await ui("document.getElementById('discipline-enabled-emergency_scientific').checked=true;document.getElementById('discipline-enabled-emergency_operational').checked=true;document.getElementById('save-disciplines').click()");await waitFor(admin,"state.disciplines.length===7");
+    assert.equal(store.view().itemLeaderboards.emergency_scientific[0].finalValue,15);
+    await assert.rejects(display.webContents.executeJavaScript("window.scoreboardAPI.updateDisciplines({disciplines:[]})"),/مدیریت/);
+    check('emergency science independently averages two scores; timed emergency includes penalty; disabling and re-enabling retains all records and hall cannot change rules');
+    // Full seven-discipline display/PDF fixtures contain no real competition data.
+    fullStore.updateDisciplines({disciplines:fullStore.view().disciplineCatalog.map(d=>({...d,...(d.position>5?{enabled:true,configured:true,participantCount:d.mode==='score'?2:1}:{})}))});
+    for(const team of fullStore.view().teams){for(const slot of [1,2])fullStore.saveScientificScore({teamId:team.id,disciplineId:'emergency_scientific',slot,name:`امدادگر ${team.id}-${slot}`,score:100-team.id,durationMs:30000+team.id*10});fullStore.saveResult({teamId:team.id,disciplineId:'emergency_operational',rawPrimaryMs:50000+team.id*100,penaltyMs:1000});}
+    fullStore.updateSettings({secondaryLogo:leftLogo,autoRotate:false,displayLayout:'all'});fullStore.setDisplay({mode:'standings'});
+    admin.hide();await delay(100);
+    for(const [width,height]of [[1280,720],[1920,1080]]){
+      display.setSize(width,height);await delay(100);await display.webContents.executeJavaScript(`receive(${JSON.stringify({...fullStore.view(),revision:++fullRevision})});updatedTeams.clear();render()`);await assertTableFit(22,2,1);
+      const logos=await display.webContents.executeJavaScript("(()=>{const a=document.querySelector('.competition-logo').getBoundingClientRect(),b=document.querySelector('.secondary-logo').getBoundingClientRect();return {left:b.left,right:a.right,viewport:innerWidth,visible:!document.querySelector('.secondary-logo').hidden};})()");assert.ok(logos.visible&&logos.left<logos.right&&logos.left>=0&&logos.right<=logos.viewport,JSON.stringify(logos));
+      fs.writeFileSync(path.join(out,`seven-items-two-logos-${width}.png`),(await display.webContents.capturePage()).toPNG());
+    }
+    reportStore=fullStore;for(const type of ['overall','standings','team','item']){outputPath=path.join(out,`seven-${type}-single.pdf`);await exportHandler({sender:admin.webContents},{type,layout:'single',teamId:1,disciplineId:'emergency_scientific'});singlePage(outputPath);}
+    outputPath=path.join(out,'seven-overall-multi.pdf');await exportHandler({sender:admin.webContents},{type:'overall',layout:'multi'});reportStore=store;
+    check('all seven disciplines and both logos fit 22 teams at 720p/1080p and export complete single/multi-page PDFs');
     assert.deepEqual(errors, []);
     fs.writeFileSync(path.join(out, "smoke-result.json"), JSON.stringify({ passed: true, bounds, checks, timings }, null, 2));
-    fs.writeFileSync(path.join(out, "live-data-example.json"), JSON.stringify({ schema_version: 6, revision: store.view().revision, team_scores: store.view().team_scores }, null, 2));
+    fs.writeFileSync(path.join(out, "live-data-example.json"), JSON.stringify({ schema_version: 7, revision: store.view().revision, team_scores: store.view().team_scores }, null, 2));
     console.log("Native Electron smoke passed: production IPC, admin forms, manual turns, live sorting, lifecycle, paging and PDF exports.");
     clearTimeout(watchdog); controller.close(); admin.destroy(); fs.rmSync(path.join(temporary, "competition"), { recursive: true, force: true }); app.exit(0);
   } catch (error) {

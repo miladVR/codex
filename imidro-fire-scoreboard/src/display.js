@@ -31,7 +31,8 @@ function receive(next) {
   state = next;
   resultKeys = new Map(next.results.map(result => [result.id, resultKey(result)]));
   if (modeChanged) page = 0;
-  const relevant = isItem() ? changes.filter(result => result.disciplineId === currentItem().id) : changes;
+  const activeChanges=changes.filter(result=>state.disciplines.some(d=>d.id===result.disciplineId));
+  const relevant = isItem() ? activeChanges.filter(result => result.disciplineId === currentItem().id) : activeChanges;
   if (initialized && relevant.length) {
     updatedTeams = new Set(relevant.map(result => result.teamId));
     for (const row of activeRows()) if (oldRanks.has(row.team.id) && oldRanks.get(row.team.id) !== ((isItem() || isIndividual()) ? row.rank : row.officialRank)) updatedTeams.add(row.team.id);
@@ -68,14 +69,15 @@ function render() {
   document.querySelector("#venue").textContent = [state.settings.venue,state.settings.eventDate].filter(Boolean).join(" · ");
   document.querySelector("#venue").title=document.querySelector("#venue").textContent;
   document.querySelector(".competition-logo").src=state.settings.competitionLogo || "../assets/competition-logo.jpg";
+  const secondary=document.querySelector(".secondary-logo");secondary.hidden=!state.settings.secondaryLogo;if(state.settings.secondaryLogo)secondary.src=state.settings.secondaryLogo;
   const sponsors=document.querySelector("#sponsor-logos");sponsors.replaceChildren();
   for (const src of state.settings.sponsorLogos.filter(Boolean)) { const img=document.createElement("img");img.src=src;img.alt="حامی مسابقه";sponsors.append(img); }
   document.querySelector("#display-message").textContent = state.settings.displayMessage;
   document.querySelector("#mode-label").textContent = isDraw() ? "نوبت اجرای ثابت — نه رتبه" : "نتایج زندهٔ موقت و تأییدشده";
-  document.querySelector("#progress").textContent = isDraw() ? `${number(currentDraw().entries.length)} تیم` : `${number(state.results.filter(result => result.status === "draft").length)} نتیجه موقت`;
+  document.querySelector("#progress").textContent = isDraw() ? `${number(currentDraw().entries.length)} تیم` : `${number(state.results.filter(result => result.status === "draft"&&state.disciplines.some(d=>d.id===result.disciplineId)).length)} نتیجه موقت`;
   const total=isDraw()?currentDraw().entries.length:activeRows().length;
   document.querySelector("#page-info").textContent = `صفحه ${number(page + 1)} از ${number(pages())} · ${number(total)} ${isIndividual()?"ورزشکار":"تیم"}`;
-  document.querySelector("#table-title").textContent = isDraw() ? currentDraw().title : isIndividual() ? "عملیات ترکیبی — رده‌بندی انفرادی" : isItem() ? currentItem().name : "رده‌بندی کل مسابقات — زنده";
+  document.querySelector("#table-title").textContent = isDraw() ? currentDraw().title : isIndividual() ? `${state.disciplines.find(d=>d.id==="combined")?.name??"عملیات ترکیبی"} — رده‌بندی انفرادی` : isItem() ? currentItem().name : "رده‌بندی کل مسابقات — زنده";
   document.querySelector("#table-subtitle").textContent = isDraw() ? "شماره نوبت = ترتیب حضور؛ رتبه نیست" : "نوبت اجرا: ثابت | رتبه امتیازی: متغیر | جریمه: ثانیه";
   renderPodium();
   if (isDraw()) renderDraw(); else if (isIndividual()) renderIndividual(); else if (isItem()) renderItem(); else renderStandings();

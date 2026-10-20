@@ -11,6 +11,7 @@ const { validateSnapshot } = require("./snapshot.cjs");
 const { validateLogo } = require("./branding.cjs");
 const { buildStandings, buildItemLeaderboard } = require("./scoring.cjs");
 
+const {DEFAULT_CATALOG,catalog,discipline:findDiscipline,participantCount,validateCatalog,migrateDisciplines}=require("./disciplines.cjs");
 const DEFAULT_DISCIPLINES = [
   { id: "scientific", name: "آزمون علمی", mode: "score", position: 1 },
   { id: "combined", name: "عملیات ترکیبی", mode: "pair_time", position: 2 },
@@ -74,6 +75,7 @@ class CompetitionStore {
     const teamId = integer(payload.teamId);
     const discipline = this.state.disciplines.find((item) => item.id === payload.disciplineId);
     if (!this.state.teams.some((team) => team.id === teamId) || !discipline) throw new Error("تیم یا رشته معتبر نیست.");
+    if(discipline.mode==="score"&&discipline.id!=="scientific")throw Error("از ثبت مستقل امتیاز شرکت‌کننده استفاده کنید.");
     if (discipline.mode === "pair_time") return this.saveCombinedPair(payload);
     const rawPrimaryMs = optionalDuration(payload.rawPrimaryMs);
     const rawSecondaryMs = optionalDuration(payload.rawSecondaryMs);
@@ -111,7 +113,7 @@ class CompetitionStore {
     };
     if (existing) Object.assign(existing, record); else this.state.results.push(record);
     const profile=this.state.participantProfiles.find(p=>p.teamId===teamId && p.disciplineId===discipline.id && p.slot===1);
-    if(profile && discipline.mode!=="score") {profile.name=record.athletePrimary;this.state.participantProfiles.find(p=>p.teamId===teamId && p.disciplineId===discipline.id && p.slot===2).name=record.athleteSecondary;}
+    if(profile && discipline.mode!=="score") {profile.name=record.athletePrimary;const second=this.state.participantProfiles.find(p=>p.teamId===teamId && p.disciplineId===discipline.id && p.slot===2);if(second)second.name=record.athleteSecondary;}
     if(discipline.mode==="score") record.legacyScientific=true;
     this.#audit("save_result", `نتیجه ${discipline.name} برای تیم ${this.#teamName(teamId)} ذخیره شد.`);
     this.#persist();
@@ -120,7 +122,7 @@ class CompetitionStore {
 
   approveResult(payload) {
     const result = this.#result(payload.resultId);
-    if ((result.disciplineId === "combined" || result.disciplineId === "scientific" && !result.legacyScientific) && result.completionStatus !== "Completed") throw new Error("تأیید تیمی فقط پس از ثبت همه نفرات — هر دو ورزشکار ترکیبی یا پنج شرکت‌کننده علمی — مجاز است.");
+    if ((result.disciplineId === "combined" || findDiscipline(this.state,result.disciplineId)?.mode === "score" && !result.legacyScientific) && result.completionStatus !== "Completed") throw new Error(result.disciplineId==="combined"?"تأیید تیمی فقط پس از ثبت هر دو ورزشکار ترکیبی مجاز است.":result.disciplineId==="scientific"?"تأیید تیمی فقط پس از ثبت پنج شرکت‌کننده علمی مجاز است.":`تأیید تیمی فقط پس از ثبت همه ${participantCount(this.state,result.disciplineId)} شرکت‌کننده مجاز است.`);
     if (result.status === "approved") return this.view();
     result.status = "approved";
     result.approvedBy = clean(payload.approvedBy || "سرداور", 100);
@@ -143,6 +145,7 @@ class CompetitionStore {
   }
 
   saveRoundScore(payload) {
+    if(!this.state.disciplines.some(d=>d.id==="combined"))throw Error("عملیات ترکیبی فعال نیست.");
     const teamId=integer(payload.teamId), round=integer(payload.round);
     if (!this.state.teams.some(t=>t.id===teamId) || ![1,2].includes(round)) throw new Error("تیم یا دور معتبر نیست.");
     const result=this.state.results.find(r=>r.teamId===teamId && r.disciplineId==="combined");
@@ -169,6 +172,7 @@ class CompetitionStore {
 
   // Compatibility for old complete-pair API clients. New UI only uses saveRoundScore.
   saveCombinedPair(payload) {
+    if(!this.state.disciplines.some(d=>d.id==="combined"))throw Error("عملیات ترکیبی فعال نیست.");
     const teamId=integer(payload.teamId);
     const existing=this.state.results.find(r=>r.teamId===teamId && r.disciplineId==="combined");
     if (existing?.status==="approved") throw new Error("ابتدا نتیجه تأییدشده را برای اصلاح باز کنید.");
@@ -217,6 +221,7 @@ class CompetitionStore {
   saveParticipant(payload) {
     const profile=this.state.participantProfiles.find(p=>p.id===integer(payload.id));
     if(!profile)throw Error("ورزشکار پیدا نشد.");
+    if(!this.state.disciplines.some(d=>d.id===profile.disciplineId))throw Error("رشته ورزشکار فعال نیست.");
     this.#checkRevision(payload);
     const result=this.state.results.find(r=>r.teamId===profile.teamId && r.disciplineId===profile.disciplineId);
     if(result?.status==="approved")throw Error("ابتدا نتیجه تأییدشده را برای اصلاح باز کنید.");
@@ -227,33 +232,34 @@ class CompetitionStore {
     if(profile.disciplineId==="combined") {
       this.state.athletes.find(a=>a.teamId===profile.teamId&&a.round===profile.slot).name=name;
       if(result){result[profile.slot===1?"athletePrimary":"athleteSecondary"]=name;}
-    } else if(profile.disciplineId!=="scientific" && result)result[profile.slot===1?"athletePrimary":"athleteSecondary"]=name;
+    } else if(findDiscipline(this.state,profile.disciplineId)?.mode!=="score" && result && profile.slot<=2)result[profile.slot===1?"athletePrimary":"athleteSecondary"]=name;
     this.#audit("save_participant",`مشخصات ورزشکار ${profile.slot} تیم ${this.#teamName(profile.teamId)} به‌روز شد.`);
     this.#persist();return this.view();
   }
 
   saveScientificScore(payload) {
     this.#checkRevision(payload);
-    const teamId=integer(payload.teamId),slot=integer(payload.slot);
-    const profile=this.state.participantProfiles.find(p=>p.teamId===teamId&&p.disciplineId==="scientific"&&p.slot===slot);
+    const teamId=integer(payload.teamId),slot=integer(payload.slot),disciplineId=payload.disciplineId??"scientific";
+    const config=this.state.disciplines.find(d=>d.id===disciplineId&&d.mode==="score");if(!config)throw Error("رشته امتیازی فعال نیست.");
+    const profile=this.state.participantProfiles.find(p=>p.teamId===teamId&&p.disciplineId===disciplineId&&p.slot===slot);
     if(!profile)throw Error("تیم یا شماره شرکت‌کننده آزمون معتبر نیست.");
-    const old=this.state.results.find(r=>r.teamId===teamId&&r.disciplineId==="scientific");
+    const old=this.state.results.find(r=>r.teamId===teamId&&r.disciplineId===disciplineId);
     if(old?.status==="approved")throw Error("ابتدا نتیجه تأییدشده را برای اصلاح باز کنید.");
     if(payload.score===null||payload.score===undefined||payload.score==="")throw Error("امتیاز همین شرکت‌کننده را وارد کنید.");
-    const score=boundedNumber(payload.score,0,100,"امتیاز علمی هر نفر"),durationMs=optionalDuration(payload.durationMs);
+    const score=boundedNumber(payload.score,0,config.maxScore,"امتیاز هر نفر"),durationMs=optionalDuration(payload.durationMs);
     if(durationMs===0)throw Error("زمان پاسخ‌گویی نمی‌تواند صفر باشد.");
     const name=payload.name===undefined?profile.name:clean(payload.name,100);
     if(profile.name&&!name)throw Error("پاک‌کردن نام باید با تأیید دومرحله‌ای انجام شود.");
-    if(!name)throw Error("نام شرکت‌کننده آزمون علمی الزامی است.");
-    const result=old||{id:this.state.nextResultId++,teamId,disciplineId:"scientific",rawPrimaryMs:null,rawSecondaryMs:null,penaltyMs:0,athletePrimary:"",athleteSecondary:""};
+    if(!name)throw Error("نام شرکت‌کننده الزامی است.");
+    const result=old||{id:this.state.nextResultId++,teamId,disciplineId,rawPrimaryMs:null,rawSecondaryMs:null,penaltyMs:0,athletePrimary:"",athleteSecondary:""};
     const entries=structuredClone(result.scientificEntries||[]),entry=entries.find(e=>e.slot===slot);
     if(entry?.durationMs!=null && durationMs==null)throw Error("پاک‌کردن زمان باید با حذف دومرحله‌ای رکورد انجام شود.");
     const updated={slot,score:Math.round(score*100)/100,durationMs};
     if(entry)Object.assign(entry,updated);else entries.push(updated);
-    profile.name=name;result.scientificEntries=entries.sort((a,b)=>a.slot-b.slot);syncScientific(result);
+    profile.name=name;result.scientificEntries=entries.sort((a,b)=>a.slot-b.slot);syncScientific(result,findDiscipline(this.state,result.disciplineId));
     Object.assign(result,{status:"draft",approvedBy:"",approvedAt:null,note:clean(payload.note,1000),judge:clean(payload.judge||"داور مسابقه",100),updatedAt:new Date().toISOString()});
     if(!old)this.state.results.push(result);
-    this.#audit("save_scientific",`امتیاز نفر ${slot} آزمون علمی تیم ${this.#teamName(teamId)} ثبت شد.`);
+    this.#audit("save_scientific",`امتیاز نفر ${slot} در ${config.name} تیم ${this.#teamName(teamId)} ثبت شد.`);
     this.#persist();return this.view();
   }
 
@@ -297,13 +303,13 @@ class CompetitionStore {
       summary=`پاک‌سازی کامل و غیرقابل برگشت: ${this.state.teams.length} تیم، ${this.state.participantProfiles.length} جایگاه ورزشکار در رشته‌ها، ${this.state.results.length} نتیجه، ${this.state.roundScores.length} رکورد دور، ${this.state.draws.length} قرعه و ${this.state.audits.length} سابقه؛ همه زمان‌ها و جریمه‌ها، لوگوهای سفارشی و پشتیبان‌های خودکار داخلی پاک می‌شوند. عنوان، تاریخ، محل، پیام و صدا به تنظیمات اولیه برمی‌گردند. فایل‌های PDF و پشتیبان‌هایی که خودتان بیرون از برنامه ذخیره کرده‌اید پاک نمی‌شوند.`;
     } else if (kind==="participant" || kind==="participant_photo") {
       const profile=this.state.participantProfiles.find(p=>p.id===id); if(!profile) throw Error("ورزشکار پیدا نشد.");
-      summary=`${kind==="participant_photo" ? "فقط عکس" : "نام، عکس و رکورد"} ورزشکار ${profile.name || profile.slot} تیم ${this.#teamName(profile.teamId)} در ${this.state.disciplines.find(d=>d.id===profile.disciplineId).name} پاک می‌شود.`;
+      summary=`${kind==="participant_photo" ? "فقط عکس" : "نام، عکس و رکورد"} ورزشکار ${profile.name || profile.slot} تیم ${this.#teamName(profile.teamId)} در ${findDiscipline(this.state,profile.disciplineId).name} پاک می‌شود.`;
     } else if (kind==="team") {
       const team=this.state.teams.find(t=>t.id===id); if (!team) throw new Error("تیم پیدا نشد.");
       summary=`تیم ${team.name}؛ تمام ورزشکاران و ${this.state.results.filter(r=>r.teamId===id).length} نتیجه و تمام رکوردهای انفرادی آن حذف می‌شوند.`;
     } else if (kind==="result") {
       const result=this.#result(id);
-      summary=`ورزشکاران ${result.athletePrimary || "—"} / ${result.athleteSecondary || "—"}؛ نتیجه ${this.state.disciplines.find(d=>d.id===result.disciplineId).name} تیم ${this.#teamName(result.teamId)}؛ زمان‌ها ${result.rawPrimaryMs ?? "—"} / ${result.rawSecondaryMs ?? "—"} میلی‌ثانیه؛ جریمه ${result.penaltyMs}؛ نمره ${result.scientificScore ?? "—"}`;
+      summary=`ورزشکاران ${result.athletePrimary || "—"} / ${result.athleteSecondary || "—"}؛ نتیجه ${findDiscipline(this.state,result.disciplineId).name} تیم ${this.#teamName(result.teamId)}؛ زمان‌ها ${result.rawPrimaryMs ?? "—"} / ${result.rawSecondaryMs ?? "—"} میلی‌ثانیه؛ جریمه ${result.penaltyMs}؛ نمره ${result.scientificScore ?? "—"}`;
     } else if (kind==="round") {
       const score=this.state.roundScores.find(s=>s.id===id); if (!score) throw new Error("رکورد ورزشکار پیدا نشد.");
       summary=`رکورد ${this.state.athletes.find(a=>a.id===score.athleteId).name || "ورزشکار"} تیم ${this.#teamName(score.teamId)} دور ${score.round}؛ زمان ${score.rawMs} و جریمه ${score.penaltyMs} میلی‌ثانیه`;
@@ -340,11 +346,11 @@ class CompetitionStore {
         if(p.disciplineId==="combined") {
           const athlete=this.state.athletes.find(a=>a.teamId===p.teamId && a.round===p.slot);athlete.name="";
           this.state.roundScores=this.state.roundScores.filter(r=>r.athleteId!==athlete.id);this.#syncCombined(p.teamId);
-        } else if(p.disciplineId==="scientific" && result?.scientificEntries) {
-          result.scientificEntries=result.scientificEntries.filter(e=>e.slot!==p.slot);syncScientific(result);
+        } else if(findDiscipline(this.state,p.disciplineId)?.mode==="score" && result?.scientificEntries) {
+          result.scientificEntries=result.scientificEntries.filter(e=>e.slot!==p.slot);syncScientific(result,findDiscipline(this.state,result.disciplineId));
           if(!result.scientificEntries.length)this.state.results=this.state.results.filter(r=>r!==result);
           else {result.status="draft";result.approvedAt=null;result.approvedBy="";}
-        } else if(p.disciplineId!=="scientific")this.state.results=this.state.results.filter(r=>r!==result);
+        } else if(findDiscipline(this.state,p.disciplineId)?.mode!=="score")this.state.results=this.state.results.filter(r=>r!==result);
       }
     } else if (kind==="team") {
       this.state.participantProfiles=this.state.participantProfiles.filter(p=>p.teamId!==id);
@@ -436,6 +442,7 @@ class CompetitionStore {
   }
 
   setDisplay(payload) {
+    if(payload.mode==="individual"&&!this.state.disciplines.some(d=>d.id==="combined"))throw Error("عملیات ترکیبی فعال نیست.");
     if (!["standings", "draw", "item", "individual"].includes(payload.mode)) throw new Error("حالت نمایش معتبر نیست.");
     if (payload.mode === "draw" && !this.state.draws.some(d => d.id === payload.drawId)) throw new Error("قرعه‌کشی پیدا نشد.");
     if (payload.mode === "item" && !this.state.disciplines.some(item => item.id === payload.disciplineId)) throw new Error("رشته نمایش معتبر نیست.");
@@ -446,15 +453,26 @@ class CompetitionStore {
     return this.view();
   }
 
+  updateDisciplines(payload) {
+    this.#checkRevision(payload);
+    const next=validateCatalog(payload.disciplines);
+    for(const d of next){const old=findDiscipline(this.state,d.id);
+      if(['mode','participantCount','maxScore','aggregation'].some(key=>old[key]!==d[key]) && (this.state.results.some(r=>r.disciplineId===d.id)||this.state.participantProfiles.some(p=>p.disciplineId===d.id&&(p.name||p.photo))))throw Error('روش ثبت یا تعداد نفرات رشته دارای داده قابل تغییر نیست؛ نام و فعال‌بودن همچنان قابل ویرایش‌اند.');
+    }
+    this.state.disciplineCatalog=next;migrateDisciplines(this.state);this.state.participantProfiles=this.state.participantProfiles.filter(p=>p.slot<=participantCount(this.state,p.disciplineId));migrateParticipants(this.state);
+    this.#audit('disciplines','عنوان، فعال‌بودن و روش ثبت رشته‌ها به‌روزرسانی شد؛ داده رشته‌های غیرفعال حفظ شد.');this.#persist();return this.view();
+  }
+
   updateSettings(payload) {
     if (payload.expectedRevision != null && payload.expectedRevision !== this.state.revision) throw new Error("داده تغییر کرده است؛ تنظیمات را دوباره بررسی کنید.");
     if(payload.displayLayout!==undefined && !["paged","all"].includes(payload.displayLayout)) throw new Error("چیدمان نمایشگر معتبر نیست.");
     const competitionLogo=payload.competitionLogo===undefined ? this.state.settings.competitionLogo : validateLogo(payload.competitionLogo);
+    const secondaryLogo=payload.secondaryLogo===undefined ? this.state.settings.secondaryLogo : validateLogo(payload.secondaryLogo);
     const sponsorLogos=payload.sponsorLogos===undefined ? this.state.settings.sponsorLogos : payload.sponsorLogos;
     if (!Array.isArray(sponsorLogos) || sponsorLogos.length>3) throw new Error("حداکثر سه لوگوی حامی مجاز است.");
     const sponsors=sponsorLogos.map(logo=>validateLogo(logo));
     this.state.settings = {
-      ...this.state.settings, ...validateAppearance({...this.state.settings,...payload}), competitionLogo, sponsorLogos:sponsors,
+      ...this.state.settings, ...validateAppearance({...this.state.settings,...payload}), competitionLogo, secondaryLogo, sponsorLogos:sponsors,
       eventDate:payload.eventDate===undefined ? this.state.settings.eventDate : clean(payload.eventDate,80),
       competitionName: clean(payload.competitionName || this.state.settings.competitionName, 180),
       venue: payload.venue===undefined ? this.state.settings.venue : clean(payload.venue,180),
@@ -496,14 +514,15 @@ class CompetitionStore {
       parsed.draws = parsed.draws.map(draw => ({ ...draw, method: draw.method ?? "auto",
         entries: draw.entries.map((entry, index) => ({ ...entry, drawOrder: entry.drawOrder ?? index + 1 })) }));
       parsed.revision ??= 0;
-      parsed.settings = { eventDate:"", competitionLogo:"", sponsorLogos:[], audioVolume: 45, autoRotate: true, displayLayout: "paged", displayMode: "standings", displayDrawId: null, displayItemId: null, ...parsed.settings };
+      parsed.settings = { eventDate:"", competitionLogo:"", secondaryLogo:"", sponsorLogos:[], audioVolume: 45, autoRotate: true, displayLayout: "paged", displayMode: "standings", displayDrawId: null, displayItemId: null, ...parsed.settings };
       migrateAppearance(parsed.settings);
       if (parsed.settings.displayMessage === "نتایج رسمی پس از تأیید سرداور نمایش داده می‌شوند.")
         parsed.settings.displayMessage = "نتایج زنده تا تأیید سرداور موقت هستند؛ نوبت اجرا با رتبه متفاوت است.";
       if(!["paged","all"].includes(parsed.settings.displayLayout)) parsed.settings.displayLayout="paged";
+      migrateDisciplines(parsed);
       migrateCombined(parsed);
       migrateParticipants(parsed);
-      parsed.version = 6;
+      parsed.version = 7;
       parsed.organizationCredit = ORGANIZATION;
       return parsed;
     } catch (error) {
@@ -517,20 +536,21 @@ class CompetitionStore {
 
   #initialState() {
     return {
-        version: 6,
+        version: 7,
         participantProfiles:[],nextParticipantId:1,
         revision: 0,
         organizationCredit: ORGANIZATION,
         draws: [], athletes:[],roundScores:[],combinedStartOrder:[],combinedSlots:[],nextAthleteId:1,nextRoundScoreId:1,
         settings: {
-          ...appearanceDefaults,eventDate:"",competitionLogo:"",sponsorLogos:[],
+          ...appearanceDefaults,eventDate:"",competitionLogo:"",secondaryLogo:"",sponsorLogos:[],
           competitionName: "سومین دوره مسابقات علمی و عملیاتی آتش‌نشانان ایمیدرو",
           venue: "مجتمع مس سرچشمه رفسنجان · ۱۴۰۵",
           audioEnabled: true,
           audioVolume: 45, autoRotate: true, displayLayout: "paged", displayMode: "standings", displayDrawId: null, displayItemId: null,
           displayMessage: "نتایج زنده تا تأیید سرداور موقت هستند؛ نوبت اجرا با رتبه متفاوت است."
         },
-        disciplines: DEFAULT_DISCIPLINES,
+        disciplineCatalog:structuredClone(DEFAULT_CATALOG),
+        disciplines: structuredClone(DEFAULT_CATALOG.filter(d=>d.enabled)),
         teams: [],
         results: [],
         audits: [],

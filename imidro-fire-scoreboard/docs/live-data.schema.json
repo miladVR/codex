@@ -10,7 +10,7 @@
   ],
   "properties": {
     "schema_version": {
-      "const": 6
+      "const": 7
     },
     "revision": {
       "type": "integer",

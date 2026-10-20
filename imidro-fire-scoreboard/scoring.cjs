@@ -54,11 +54,14 @@ function buildStandings(state, options = {}) {
     const completedRanks = Object.values(disciplineRanks).filter(Number.isFinite);
     return { team, drawOrder: drawOrder(state, team.id), disciplineRanks, completed: completedRanks.length,
       total: completedRanks.reduce((sum, rank) => sum + rank, 0), officialRank: null };
-  }).sort((a, b) => b.completed - a.completed || a.total - b.total || a.team.id - b.team.id);
+  }).sort((a, b) => b.completed - a.completed || a.total - b.total || waterRank(a)-waterRank(b) || a.team.id - b.team.id);
+  const waterEnabled=state.disciplines.some(d=>d.id==="water");
+  function waterRank(row){return state.disciplines.some(d=>d.id==="water") ? row.disciplineRanks.water ?? Infinity : 0;}
   let lastTotal = null;
   let lastRank = 0;
   rows.filter(row => row.completed === state.disciplines.length).forEach((row, index) => {
-    if (row.total !== lastTotal) { lastRank = index + 1; lastTotal = row.total; }
+    const key=`${row.total}:${waterEnabled?waterRank(row):""}`;
+    if (key !== lastTotal) { lastRank = index + 1; lastTotal = key; }
     row.officialRank = lastRank;
   });
   return rows;
