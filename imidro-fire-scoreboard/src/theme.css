@@ -70,3 +70,11 @@ body:not(.hall-display)[data-appearance="2"] tbody tr:hover>td{box-shadow:inset 
 .preview-table{width:100%;margin:10px 0 14px;font-size:var(--admin-font)}.preview-table th,.preview-table td{padding:4px 8px;text-align:center}
 /* Color-only hall headers preserve the tested 44-athlete layout metrics. */
 .hall-display[data-appearance="2"] .result-tables thead th{font-weight:400;border-bottom-width:1px}
+
+/* Judge, save and preview remain together above every entry form. */
+.entry-controls{position:sticky;top:var(--entry-toolbar-top,96px);z-index:5;display:grid;grid-template-columns:minmax(180px,1fr) minmax(180px,1fr);gap:8px 16px;background:var(--theme-surface);border:1px solid var(--line);border-radius:10px;padding:12px;margin:12px 0 18px;box-shadow:0 3px 8px #00000012}
+.entry-controls>.field{margin:0}.entry-controls>.actions{margin:0;align-self:end;display:flex;align-items:center;gap:8px;flex-wrap:wrap}.entry-controls>.result-preview,.entry-controls>.inline-status{grid-column:1/-1;margin:0}.entry-controls .result-preview{padding:8px 12px}.entry-controls .result-preview strong{font-size:calc(var(--admin-font) + 3px)}
+.discipline-settings fieldset{border:1px solid var(--line);border-radius:10px;padding:12px;margin:12px 0}.discipline-settings legend{font-weight:700}.discipline-settings .form-grid{grid-template-columns:repeat(auto-fit,minmax(220px,1fr))}.discipline-settings .form-grid>p{grid-column:1/-1}.discipline-settings .switch-row{align-self:start}.admin-secondary-logo{width:54px;height:54px;object-fit:contain;background:#fff;border-radius:8px;flex-shrink:0}
+@media(max-width:850px){.entry-controls{position:static;grid-template-columns:1fr}}
+
+.discipline-settings summary{font-weight:700;cursor:pointer;padding:8px}.discipline-settings details[open]>summary{margin-bottom:12px}

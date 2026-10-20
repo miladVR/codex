@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/miladVR/codex/imidro-staged-v6",
-  "title": "IMIDRO v6 canonical competition snapshot",
+  "$id": "https://github.com/miladVR/codex/imidro-staged-v7",
+  "title": "IMIDRO v7 canonical competition snapshot",
   "type": "object",
   "required": [
     "version",
@@ -12,11 +12,13 @@
     "combinedStartOrder",
     "combinedSlots",
     "participantProfiles",
-    "results"
+    "results",
+    "disciplines",
+    "disciplineCatalog"
   ],
   "properties": {
     "version": {
-      "const": 6
+      "const": 7
     },
     "teams": {
       "type": "array",
@@ -63,6 +65,22 @@
       "type": "array",
       "items": {
         "$ref": "#/$defs/Result"
+      }
+    },
+    "disciplineCatalog": {
+      "type": "array",
+      "minItems": 7,
+      "maxItems": 7,
+      "items": {
+        "$ref": "#/$defs/Discipline"
+      }
+    },
+    "disciplines": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 7,
+      "items": {
+        "$ref": "#/$defs/Discipline"
       }
     }
   },
@@ -399,6 +417,9 @@
           "type": "string",
           "pattern": "^#[0-9a-fA-F]{6}$",
           "default": "#e6f0fa"
+        },
+        "secondaryLogo": {
+          "type": "string"
         }
       }
     },
@@ -472,13 +493,15 @@
             "combined",
             "water",
             "rescue_skill",
-            "height"
+            "height",
+            "emergency_scientific",
+            "emergency_operational"
           ]
         },
         "slot": {
           "type": "integer",
           "minimum": 1,
-          "maximum": 5
+          "maximum": 20
         },
         "name": {
           "type": "string",
@@ -501,12 +524,12 @@
         "slot": {
           "type": "integer",
           "minimum": 1,
-          "maximum": 5
+          "maximum": 20
         },
         "score": {
           "type": "number",
           "minimum": 0,
-          "maximum": 100
+          "maximum": 1000
         },
         "durationMs": {
           "type": [
@@ -541,7 +564,9 @@
             "combined",
             "water",
             "rescue_skill",
-            "height"
+            "height",
+            "emergency_scientific",
+            "emergency_operational"
           ]
         },
         "status": {
@@ -559,7 +584,7 @@
         },
         "scientificEntries": {
           "type": "array",
-          "maxItems": 5,
+          "maxItems": 20,
           "items": {
             "$ref": "#/$defs/ScientificEntry"
           }
@@ -570,15 +595,81 @@
             "null"
           ],
           "minimum": 0,
-          "maximum": 500
+          "maximum": 20000
         },
         "scientificSubtotal": {
           "type": "number",
           "minimum": 0,
-          "maximum": 500
+          "maximum": 20000
         },
         "legacyScientific": {
           "type": "boolean"
+        }
+      }
+    },
+    "Discipline": {
+      "type": "object",
+      "required": [
+        "id",
+        "name",
+        "mode",
+        "position",
+        "enabled",
+        "configured",
+        "participantCount",
+        "maxScore",
+        "aggregation"
+      ],
+      "properties": {
+        "id": {
+          "enum": [
+            "scientific",
+            "combined",
+            "water",
+            "rescue_skill",
+            "height",
+            "emergency_scientific",
+            "emergency_operational"
+          ]
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "mode": {
+          "enum": [
+            "score",
+            "time",
+            "pair_time"
+          ]
+        },
+        "position": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 7
+        },
+        "enabled": {
+          "type": "boolean"
+        },
+        "configured": {
+          "type": "boolean"
+        },
+        "participantCount": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 20
+        },
+        "maxScore": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 1000
+        },
+        "aggregation": {
+          "enum": [
+            "sum",
+            "average"
+          ]
         }
       }
     }
