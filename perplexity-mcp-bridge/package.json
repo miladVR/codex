@@ -1,0 +1,16 @@
+{
+  "name": "milad-perplexity-mcp-bridge",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "start": "node server.mjs"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "@perplexity-ai/mcp-server": "^1.4.0",
+    "cors": "^2.8.5",
+    "express": "^4.21.2"
+  }
+}
