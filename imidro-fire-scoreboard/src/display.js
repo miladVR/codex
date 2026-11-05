@@ -39,7 +39,7 @@ function receive(next) {
     highlightUntil = Date.now() + 10000;
     if (!isDraw()) {
       const index = activeRows().findIndex(row => row.team.id === relevant.at(-1).teamId);
-      page = Math.max(0, Math.floor(index / plan().capacity));
+      page = Math.max(0, Math.floor(index / plan().capacity))*disciplineGroups()+Math.max(0,Math.floor(state.disciplines.findIndex(d=>d.id===relevant.at(-1).disciplineId)/7))%disciplineGroups();
     }
     const result = relevant.at(-1), team = state.teams.find(item => item.id === result.teamId);
     document.querySelector("#announcement").textContent = `به‌روزرسانی زنده · ${team?.name ?? ""} · ${result.status === "approved" ? "تأییدشده" : "موقت — در انتظار تأیید"}`;
@@ -55,7 +55,9 @@ api.onStateChange(receive);
 synchronize();
 // Recover a missed event after reload, sleep or temporary renderer interruption.
 setInterval(synchronize, 5000);
-function pages() { return plan().pageCount; }
+function disciplineGroups(){return !isDraw()&&!isItem()&&!isIndividual()?Math.max(1,Math.ceil(state.disciplines.length/7)):1;}
+function shownDisciplines(){return state.disciplines.slice((page%disciplineGroups())*7,(page%disciplineGroups()+1)*7);}
+function pages() { return plan().pageCount*disciplineGroups(); }
 function render() {
   if (!state) return;
   window.scoreboardAppearance.apply(state.settings);
@@ -164,7 +166,7 @@ function fitNames(nonTableOnly=false){
   }
 }
 function totalRows(){return isDraw()?currentDraw().entries.length:activeRows().length;}
-function visibleRows(){const capacity=plan().capacity;return activeRows().slice(page*capacity,(page+1)*capacity);}
+function visibleRows(){const capacity=plan().capacity;const rowPage=Math.floor(page/disciplineGroups());return activeRows().slice(rowPage*capacity,(rowPage+1)*capacity);}
 function renderTables(className,head,rows,rowHtml){
   const columns=plan().columns,split=Math.ceil(rows.length/columns),parts=[];
   for(let column=0;column<columns;column++){
@@ -181,7 +183,8 @@ function renderPodium() {
 function rankBadge(rank) { return `<span class="rank ${rank === 1 ? "first" : ""}">${number(rank)}</span>`; }
 function turnBadge(order) { return `<span class="turn" aria-label="نوبت اجرا ${number(order)}">${number(order)}</span>`; }
 function renderStandings() {
-  renderTables("overall-table",`<th>رتبه امتیازی</th><th>تیم</th><th>نوبت عمومی</th>${state.disciplines.map(item => `<th>${escapeHtml(item.name)}</th>`).join("")}<th>مجموع رتبه</th><th>مراحل انجام‌شده</th>`,visibleRows(),row=>`<tr data-team-id="${row.team.id}" class="${updatedTeams.has(row.team.id)?"updated":""}"><td>${rankBadge(row.officialRank)}</td><td class="team" title="${escapeHtml(row.team.name)}">${fullName(row.team.name)}</td><td>${turnBadge(row.drawOrder)}</td>${state.disciplines.map(item=>`<td>${number(row.disciplineRanks[item.id])}</td>`).join("")}<td class="total">${number(row.completed?row.total:null)}</td><td class="complete">${number(row.completed)}/${number(state.disciplines.length)}</td></tr>`);
+  const disciplines=shownDisciplines();if(disciplineGroups()>1)document.getElementById("table-subtitle").textContent+=` | گروه رشته ${number(page%disciplineGroups()+1)} از ${number(disciplineGroups())} — مجموع بر اساس همه ${number(state.disciplines.length)} رشته`;
+  renderTables("overall-table",`<th>رتبه امتیازی</th><th>تیم</th><th>نوبت عمومی</th>${disciplines.map(item => `<th data-discipline-id="${item.id}">${escapeHtml(item.name)}</th>`).join("")}<th>مجموع رتبه</th><th>مراحل انجام‌شده</th>`,visibleRows(),row=>`<tr data-team-id="${row.team.id}" class="${updatedTeams.has(row.team.id)?"updated":""}"><td>${rankBadge(row.officialRank)}</td><td class="team" title="${escapeHtml(row.team.name)}">${fullName(row.team.name)}</td><td>${turnBadge(row.drawOrder)}</td>${disciplines.map(item=>`<td>${number(row.disciplineRanks[item.id])}</td>`).join("")}<td class="total">${number(row.completed?row.total:null)}</td><td class="complete">${number(row.completed)}/${number(state.disciplines.length)}</td></tr>`);
 }
 function renderItem() {
   const item = currentItem();
@@ -189,7 +192,7 @@ function renderItem() {
     const result = row.result;
     const statusFull=result?.completionStatus==="Partial"?"در حال تکمیل":!result?"ثبت نشده":result.status==="approved"?"تأییدشده":"موقت";
     const statusShort=result?.completionStatus==="Partial"?"ناقص":!result?"خالی":result.status==="approved"?"رسمی":"موقت";
-    const raw = !result ? "—" : item.mode === "score" ? formatTime(result.scientificDurationMs) : item.mode === "pair_time" ? `<span class="pair-record"><span>${formatTime(result.rawPrimaryMs)}</span><span>${formatTime(result.rawSecondaryMs)}</span></span>` : formatTime(result.rawPrimaryMs);
+    const raw = !result ? "—" : item.mode === "score" ? formatTime(result.scientificDurationMs) : item.mode === "pair_time"&&item.participantCount!==2 ? `<span class="pair-record"><span>${formatTime(result.combinedSelectedRawMs)}</span><small>نفرات ${escapeHtml((result.combinedSelectedRounds??[]).join("، "))}</small></span>` : item.mode === "pair_time" ? `<span class="pair-record"><span>${formatTime(result.rawPrimaryMs)}</span><span>${formatTime(result.rawSecondaryMs)}</span></span>` : formatTime(result.rawPrimaryMs);
     return `<tr data-team-id="${row.team.id}" class="${updatedTeams.has(row.team.id) ? "updated" : ""}"><td>${rankBadge(row.rank)}</td><td class="team" title="${escapeHtml(row.team.name)}">${fullName(row.team.name)}</td><td>${turnBadge(row.drawOrder)}</td><td class="record">${raw}</td><td class="record penalty-value">${result && item.mode !== "score" ? seconds(result.penaltyMs) : "—"}</td><td class="total record">${item.mode === "score" ? number(row.finalValue) : formatTime(row.finalValue)}</td><td><span class="result-status ${result?.status === "approved" ? "approved" : "draft"}" title="${statusFull}" aria-label="${statusFull}">${statusShort}</span></td></tr>`;
   });
 }

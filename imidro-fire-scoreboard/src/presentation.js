@@ -8,7 +8,7 @@
   }
   function pagePlan(total,kind,layout="paged"){
     const limit=kind==="individual"?22:11;
-    const capacity=layout==="all"?Math.max(1,total):limit;
+    const capacity=layout==="all"?Math.max(1,Math.min(total,limit*2)):limit;
     const columns=layout==="all"&&total>limit?2:1;
     return {capacity,columns,pageCount:Math.max(1,Math.ceil(total/capacity)),rowsPerColumn:Math.max(1,Math.ceil(Math.min(total,capacity)/columns))};
   }
