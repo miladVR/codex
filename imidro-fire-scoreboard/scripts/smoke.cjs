@@ -15,7 +15,7 @@ const out = path.join(root, "release", "qa");
 app.setPath("userData", path.join(temporary, "electron-profile"));
 app.commandLine.appendSwitch("autoplay-policy", "no-user-gesture-required");
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
-const watchdog = setTimeout(() => { console.error('Native smoke exceeded its 180s bound.'); app.exit(1); }, 180000);
+const watchdog = setTimeout(() => { console.error('Native smoke exceeded its 240s bound.'); app.exit(1); }, 240000);
 async function waitFor(window, expression, timeout = 5000) {
   const until = Date.now() + timeout;
   while (Date.now() < until) {
@@ -621,7 +621,7 @@ app.whenReady().then(async () => {
     await assert.rejects(display.webContents.executeJavaScript("window.scoreboardAPI.updateDisciplines({disciplines:[]})"),/مدیریت/);
     check('emergency science independently averages two scores; timed emergency includes penalty; disabling and re-enabling retains all records and hall cannot change rules');
     // Full seven-discipline display/PDF fixtures contain no real competition data.
-    fullStore.updateDisciplines({disciplines:fullStore.view().disciplineCatalog.map(d=>({...d,...(d.position>5?{enabled:true,configured:true,participantCount:d.mode==='score'?2:1}:{})}))});
+    fullStore.updateDisciplines({disciplines:fullStore.view().disciplineCatalog.map(d=>({...d,...([6,7].includes(d.position)?{enabled:true,configured:true,participantCount:d.mode==='score'?2:1}:{})}))});
     for(const team of fullStore.view().teams){for(const slot of [1,2])fullStore.saveScientificScore({teamId:team.id,disciplineId:'emergency_scientific',slot,name:`امدادگر ${team.id}-${slot}`,score:100-team.id,durationMs:30000+team.id*10});fullStore.saveResult({teamId:team.id,disciplineId:'emergency_operational',rawPrimaryMs:50000+team.id*100,penaltyMs:1000});}
     fullStore.updateSettings({secondaryLogo:leftLogo,autoRotate:false,displayLayout:'all'});fullStore.setDisplay({mode:'standings'});
     admin.hide();await delay(100);
@@ -633,9 +633,51 @@ app.whenReady().then(async () => {
     reportStore=fullStore;for(const type of ['overall','standings','team','item']){outputPath=path.join(out,`seven-${type}-single.pdf`);await exportHandler({sender:admin.webContents},{type,layout:'single',teamId:1,disciplineId:'emergency_scientific'});singlePage(outputPath);}
     outputPath=path.join(out,'seven-overall-multi.pdf');await exportHandler({sender:admin.webContents},{type:'overall',layout:'multi'});reportStore=store;
     check('all seven disciplines and both logos fit 22 teams at 720p/1080p and export complete single/multi-page PDFs');
+    // Use the settings form and live entry with a fresh team, including the third round.
+    admin.show();await delay(100);
+    const archivedScientific=store.view().results.find(r=>r.teamId===1&&r.disciplineId==='emergency_scientific').scientificEntries;
+    await ui("document.querySelector('[data-view=settings]').click();document.getElementById('discipline-details').open=true;document.getElementById('discipline-count-combined').value='3';document.getElementById('discipline-best-combined').value='2';document.getElementById('discipline-count-emergency_scientific').value='1';document.getElementById('discipline-name-custom_01').value='رشته سفارشی آزمایشی';document.getElementById('discipline-enabled-custom_01').checked=true;document.getElementById('save-disciplines').click()");
+    await waitFor(admin,"state.disciplines.length===8&&state.disciplines.find(d=>d.id==='combined').participantCount===3");
+    assert.equal(store.view().disciplineCatalog.length,20);
+    assert.equal(store.view().itemLeaderboards.emergency_scientific.find(r=>r.team.id===1).finalValue,10);
+    assert.deepEqual(store.view().results.find(r=>r.teamId===1&&r.disciplineId==='emergency_scientific').scientificEntries,archivedScientific);
+    check('20 configurable slots, custom item activation and scientific headcount change through real admin controls preserve archived scores');
+    const newTeam=store.addTeam({name:'تیم آزمایش سه ورزشکار'}).teams.at(-1).id;
+    await ui("state=null;receive(await window.scoreboardAPI.getState());document.querySelector('[data-view=entry]').click();document.getElementById('discipline').value='combined';document.getElementById('discipline').dispatchEvent(new Event('change'));document.getElementById('team').value='"+newTeam+"';document.getElementById('team').dispatchEvent(new Event('change'))");
+    for(const [round,sec,penalty]of [[1,48,8],[2,51,0],[3,53,0]]){
+      await ui("document.getElementById('combined-round').value='"+round+"';document.getElementById('combined-round').dispatchEvent(new Event('change'));document.getElementById('primary-s').value='"+sec+"';document.getElementById('penalty').value='"+penalty+"';document.getElementById('primary-s').dispatchEvent(new Event('input'));document.getElementById('save-result').click()");
+      await waitFor(admin,"state.roundScores.some(r=>r.teamId==="+newTeam+"&&r.round==="+round+")");
+    }
+    assert.equal(store.view().itemLeaderboards.combined.find(r=>r.team.id===newTeam).finalValue,52000);
+    assert.deepEqual(store.view().results.find(r=>r.teamId===newTeam&&r.disciplineId==='combined').combinedSelectedRounds,[2,3]);
+    assert.equal(store.view().individualLeaderboard.filter(r=>r.team.id===newTeam&&r.rank!=null).length,3);
+    fs.writeFileSync(path.join(out,'best-two-of-three.png'),(await admin.webContents.capturePage()).toPNG());
+    check('real independent entry ranks all three athletes and computes best two penalized times');
+    fullStore.updateDisciplines({disciplines:fullStore.view().disciplineCatalog.map(d=>({...d,name:d.name||'رشته '+d.position,enabled:true,configured:true}))});
+    await display.webContents.executeJavaScript(`receive(${JSON.stringify({...fullStore.view(),revision:++fullRevision})});page=0;updatedTeams.clear();render()`);
+    const shown=new Set();
+    for(let group=0;group<3;group++){
+      await assertTableFit(22,2,3);
+      const ids=await display.webContents.executeJavaScript("Array.from(document.querySelectorAll('.overall-table:first-child th[data-discipline-id]'),n=>n.dataset.disciplineId)");
+      assert.equal(ids.length,group===2?6:7);ids.forEach(id=>shown.add(id));
+      if(group<2)await display.webContents.executeJavaScript("document.getElementById('next-page').click()");
+    }
+    assert.equal(shown.size,20);
+    check('hall pages all twenty active disciplines in three readable column groups without dropping teams');
+    const printStore=new CompetitionStore(path.join(temporary,'orientation'));
+    for(let i=1;i<=30;i++)printStore.addTeam({name:'تیم '+i});
+    reportStore=printStore;
+    const pdfDimensions=file=>fs.readFileSync(file).toString('latin1').match(/\/MediaBox\s*\[\s*0\s+0\s+([\d.]+)\s+([\d.]+)\s*\]/).slice(1).map(Number);
+    outputPath=path.join(out,'compact-portrait-30-teams.pdf');
+    await exportHandler({sender:admin.webContents},{type:'standings',layout:'single',orientation:'portrait',density:'compact',numberSize:10});
+    singlePage(outputPath);let dims=pdfDimensions(outputPath);assert.ok(dims[0]<dims[1]);
+    outputPath=path.join(out,'compact-landscape-30-teams.pdf');
+    await exportHandler({sender:admin.webContents},{type:'standings',layout:'multi',orientation:'landscape',density:'compact',numberSize:11});
+    dims=pdfDimensions(outputPath);assert.ok(dims[0]>dims[1]);reportStore=store;
+    check('native A4 portrait and landscape PDFs use selected directions; compact portrait fits 30 team rows');
     assert.deepEqual(errors, []);
     fs.writeFileSync(path.join(out, "smoke-result.json"), JSON.stringify({ passed: true, bounds, checks, timings }, null, 2));
-    fs.writeFileSync(path.join(out, "live-data-example.json"), JSON.stringify({ schema_version: 7, revision: store.view().revision, team_scores: store.view().team_scores }, null, 2));
+    fs.writeFileSync(path.join(out, "live-data-example.json"), JSON.stringify({ schema_version: 8, revision: store.view().revision, team_scores: store.view().team_scores }, null, 2));
     console.log("Native Electron smoke passed: production IPC, admin forms, manual turns, live sorting, lifecycle, paging and PDF exports.");
     clearTimeout(watchdog); controller.close(); admin.destroy(); fs.rmSync(path.join(temporary, "competition"), { recursive: true, force: true }); app.exit(0);
   } catch (error) {

@@ -7,6 +7,7 @@ function metric(result, discipline) {
   if (primary === null) return null;
   const penalty = finiteOrNull(result.penaltyMs) ?? 0;
   if (discipline.mode === "pair_time") {
+    if(Object.hasOwn(result,"combinedAverageMs"))return finiteOrNull(result.combinedAverageMs);
     const secondary = finiteOrNull(result.rawSecondaryMs);
     return secondary === null ? null : (primary + secondary) / 2 + penalty;
   }
