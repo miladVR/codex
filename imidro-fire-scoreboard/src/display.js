@@ -1,7 +1,7 @@
 "use strict";
 const api = window.scoreboardAPI;
 const help=window.scoreboardHelp;
-const {formatTime,pagePlan,slotBadge}=window.scoreboardPresentation;
+const {formatTime,pagePlan,slotBadge,hallDisciplineCapacity,hallDisciplineLabel}=window.scoreboardPresentation;
 help.install({getContext:()=>({state,pageCount:state?pages():1,reducedMotion:reducedMotion.matches})});help.decorate(document.querySelector(".page-controls"));
 help.attach(document.getElementById("table-title"),"dashboard","table-title");
 let state, page = 0, paused = false, highlightUntil = 0;
@@ -39,7 +39,7 @@ function receive(next) {
     highlightUntil = Date.now() + 10000;
     if (!isDraw()) {
       const index = activeRows().findIndex(row => row.team.id === relevant.at(-1).teamId);
-      page = Math.max(0, Math.floor(index / plan().capacity))*disciplineGroups()+Math.max(0,Math.floor(state.disciplines.findIndex(d=>d.id===relevant.at(-1).disciplineId)/7))%disciplineGroups();
+      page = Math.max(0, Math.floor(index / plan().capacity))*disciplineGroups()+Math.max(0,Math.floor(state.disciplines.findIndex(d=>d.id===relevant.at(-1).disciplineId)/disciplinesPerGroup()))%disciplineGroups();
     }
     const result = relevant.at(-1), team = state.teams.find(item => item.id === result.teamId);
     document.querySelector("#announcement").textContent = `به‌روزرسانی زنده · ${team?.name ?? ""} · ${result.status === "approved" ? "تأییدشده" : "موقت — در انتظار تأیید"}`;
@@ -55,17 +55,24 @@ api.onStateChange(receive);
 synchronize();
 // Recover a missed event after reload, sleep or temporary renderer interruption.
 setInterval(synchronize, 5000);
-function disciplineGroups(){return !isDraw()&&!isItem()&&!isIndividual()?Math.max(1,Math.ceil(state.disciplines.length/7)):1;}
-function shownDisciplines(){return state.disciplines.slice((page%disciplineGroups())*7,(page%disciplineGroups()+1)*7);}
+function disciplinesPerGroup(){
+  const columns=plan().columns,width=document.getElementById("standings").clientWidth;
+  return hallDisciplineCapacity((width-14*(columns-1))/columns);
+}
+function disciplineGroups(){return !isDraw()&&!isItem()&&!isIndividual()?Math.ceil(state.disciplines.length/disciplinesPerGroup()):1;}
+function shownDisciplines(){
+  const group=page%disciplineGroups(),size=disciplinesPerGroup();
+  return state.disciplines.slice(group*size,(group+1)*size);
+}
 function pages() { return plan().pageCount*disciplineGroups(); }
 function render() {
   if (!state) return;
   window.scoreboardAppearance.apply(state.settings);
-  page = Math.min(page, pages() - 1);
   if (Date.now() > highlightUntil) updatedTeams.clear();
   document.body.classList.toggle("draw-mode", isDraw());
   document.body.classList.toggle("item-mode", isItem() || isIndividual());
   document.body.classList.toggle("single-page",state.settings.displayLayout==="all");
+  page = Math.min(page, pages() - 1);
   document.querySelector("#competition-name").textContent = state.settings.competitionName;
   document.querySelector("#competition-name").title=state.settings.competitionName;
   document.querySelector("#venue").textContent = [state.settings.venue,state.settings.eventDate].filter(Boolean).join(" · ");
@@ -184,7 +191,7 @@ function rankBadge(rank) { return `<span class="rank ${rank === 1 ? "first" : ""
 function turnBadge(order) { return `<span class="turn" aria-label="نوبت اجرا ${number(order)}">${number(order)}</span>`; }
 function renderStandings() {
   const disciplines=shownDisciplines();if(disciplineGroups()>1)document.getElementById("table-subtitle").textContent+=` | گروه رشته ${number(page%disciplineGroups()+1)} از ${number(disciplineGroups())} — مجموع بر اساس همه ${number(state.disciplines.length)} رشته`;
-  renderTables("overall-table",`<th>رتبه امتیازی</th><th>تیم</th><th>نوبت عمومی</th>${disciplines.map(item => `<th data-discipline-id="${item.id}">${escapeHtml(item.name)}</th>`).join("")}<th>مجموع رتبه</th><th>مراحل انجام‌شده</th>`,visibleRows(),row=>`<tr data-team-id="${row.team.id}" class="${updatedTeams.has(row.team.id)?"updated":""}"><td>${rankBadge(row.officialRank)}</td><td class="team" title="${escapeHtml(row.team.name)}">${fullName(row.team.name)}</td><td>${turnBadge(row.drawOrder)}</td>${disciplines.map(item=>`<td>${number(row.disciplineRanks[item.id])}</td>`).join("")}<td class="total">${number(row.completed?row.total:null)}</td><td class="complete">${number(row.completed)}/${number(state.disciplines.length)}</td></tr>`);
+  renderTables("overall-table",`<th>رتبه امتیازی</th><th>تیم</th><th>نوبت عمومی</th>${disciplines.map(item => `<th scope="col" data-discipline-id="${item.id}" title="${escapeHtml(item.name)}" aria-label="${escapeHtml(item.name)}">${escapeHtml(hallDisciplineLabel(item))}</th>`).join("")}<th>مجموع رتبه</th><th>مراحل انجام‌شده</th>`,visibleRows(),row=>`<tr data-team-id="${row.team.id}" class="${updatedTeams.has(row.team.id)?"updated":""}"><td>${rankBadge(row.officialRank)}</td><td class="team" title="${escapeHtml(row.team.name)}">${fullName(row.team.name)}</td><td>${turnBadge(row.drawOrder)}</td>${disciplines.map(item=>`<td>${number(row.disciplineRanks[item.id])}</td>`).join("")}<td class="total">${number(row.completed?row.total:null)}</td><td class="complete">${number(row.completed)}/${number(state.disciplines.length)}</td></tr>`);
 }
 function renderItem() {
   const item = currentItem();

@@ -13,6 +13,7 @@ function fixture() {
     constructor(options) {
       super(); this.options = options; this.destroyed = false; this.sent = [];
       this.webContents = new EventEmitter(); this.webContents.isLoading = () => this.loading;
+      this.webContents.setWindowOpenHandler = handler => { this.windowOpenHandler=handler; };
       this.webContents.send = (...args) => this.sent.push(args); windows.push(this);
     }
     isDestroyed() { return this.destroyed; }
@@ -37,6 +38,10 @@ test("open waits for readiness, pushes current state and reuses/repositions the 
   const opening = controller.open();
   assert.equal(windows[0].shown, undefined);
   await opening;
+  assert.deepEqual(windows[0].windowOpenHandler({url:"https://example.com"}),{action:"deny"});
+  let blocked=false;
+  windows[0].webContents.emit("will-navigate",{preventDefault(){blocked=true;}},"https://example.com");
+  assert.equal(blocked,true);
   assert.equal(controller.status().targetId, 2); assert.equal(windows[0].fullscreen, true);
   assert.equal(windows[0].options.webPreferences.backgroundThrottling, false);
   assert.ok(windows[0].sent.some(([channel, state]) => channel === "state:changed" && state.revision === 7));

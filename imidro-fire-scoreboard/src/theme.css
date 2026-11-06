@@ -78,3 +78,16 @@ body:not(.hall-display)[data-appearance="2"] tbody tr:hover>td{box-shadow:inset 
 @media(max-width:850px){.entry-controls{position:static;grid-template-columns:1fr}}
 
 .discipline-settings summary{font-weight:700;cursor:pointer;padding:8px}.discipline-settings details[open]>summary{margin-bottom:12px}
+
+/* Keep the native dropdown arrow and both time digits inside the control. */
+body:not(.hall-display) .time-picker{grid-template-columns:repeat(2,minmax(58px,1fr) auto) minmax(58px,1fr);gap:4px;padding:8px;max-width:100%;min-width:0}
+body:not(.hall-display) .time-part{min-width:0}
+body:not(.hall-display) .time-part select{min-width:58px;padding:6px 4px;font-size:16px}
+body:not(.hall-display) .form-grid>.field:has(.time-picker){grid-column:1/-1}
+body:not(.hall-display) .time-picker{width:min(100%,360px)}
+.entry-error,.backup-warning{padding:8px 12px;border-inline-start:4px solid var(--theme-danger);background:var(--theme-surface);color:var(--text)}
+.backup-warning{margin:8px 20px}
+.entry-error{grid-column:1/-1}
+[aria-invalid="true"]{outline:2px solid var(--theme-danger);outline-offset:2px}
+#view-title:focus-visible{outline:2px solid var(--theme-accent);outline-offset:4px}
+.discipline-settings [hidden],.entry-error[hidden],.backup-warning[hidden]{display:none}

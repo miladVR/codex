@@ -53,6 +53,8 @@ class DisplayController {
       autoHideMenuBar: true, backgroundColor: "#ffffff", title: "نمایش زنده نتایج",
       webPreferences: { preload: path.join(__dirname, "preload.cjs"), contextIsolation: true,
         nodeIntegration: false, sandbox: true, backgroundThrottling: false } });
+    window.webContents.on("will-navigate", event => event.preventDefault());
+    window.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
     this.window = window;
     window.on("closed", () => { if (this.window === window) this.window = null; this.onStatus(this.status()); });
     window.webContents.on("did-finish-load", () => { this.error = null; this.send(this.getState()); this.onStatus(this.status()); });

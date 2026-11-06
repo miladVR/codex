@@ -9,6 +9,8 @@ function createAdminWindow() {
   adminWindow = new BrowserWindow({ width: 1480, height: 920, minWidth: 1100, minHeight: 720,
     backgroundColor: "#ffffff", title: "سامانه امتیازدهی آتش‌نشانان ایمیدرو",
     webPreferences: { preload: path.join(__dirname, "preload.cjs"), contextIsolation: true, nodeIntegration: false, sandbox: true } });
+  adminWindow.webContents.on("will-navigate", event => event.preventDefault());
+  adminWindow.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
   adminWindow.loadFile(path.join(__dirname, "src", "index.html")).catch(error => dialog.showErrorBox("خطای پنل مدیریت", error.message));
   adminWindow.on("closed", () => { display?.close(); adminWindow = null; });
 }

@@ -23,7 +23,7 @@ function validateSnapshot(input){
  const modes=Object.fromEntries(catalog(state).map(d=>[d.id,d.mode]));
  const unique=(rows,key='id')=>{if(!Array.isArray(rows)||rows.some(r=>!object(r))||new Set(rows.map(r=>r[key])).size!==rows.length)fail();};
  unique(state.teams);const teams=new Set();
- for(const t of state.teams){if(!int(t.id))fail();teams.add(t.id);text(t.name,100,true);text(t.organization??'',150);text(t.code,40);}
+ for(const t of state.teams){if(!int(t.id))fail();teams.add(t.id);text(t.name,100,true);text(t.organization??'',150);text(t.code,40,true);if(!/^[A-Za-z0-9][A-Za-z0-9_-]{0,39}$/.test(t.code))fail();}
  unique(state.results);const resultKeys=new Set();
  for(const r of state.results){
   const key=`${r.teamId}:${r.disciplineId}`;if(!int(r.id)||!teams.has(r.teamId)||!Object.hasOwn(modes,r.disciplineId)||!['approved','draft'].includes(r.status)||resultKeys.has(key))fail();resultKeys.add(key);

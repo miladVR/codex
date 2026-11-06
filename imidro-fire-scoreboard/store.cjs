@@ -7,6 +7,7 @@ const { randomInt, randomUUID } = require("node:crypto");
 const ORGANIZATION = "امور آموزش و توسعه شایستگی مجتمع مس سرچشمه رفسنجان";
 const { rounds, combinedSummary, startOrder, assignment, completion, individualLeaderboard, migrateCombined, ensureSchedule, freezeSchedule } = require("./combined.cjs");
 const { counts, migrateParticipants, validatePhoto, syncScientific } = require("./participants.cjs");
+const { scoringRuleChanged } = require("./src/presentation.js");
 const { validateSnapshot } = require("./snapshot.cjs");
 const { validateLogo } = require("./branding.cjs");
 const { buildStandings, buildItemLeaderboard } = require("./scoring.cjs");
@@ -30,6 +31,7 @@ class CompetitionStore {
     fs.mkdirSync(this.backupPath, { recursive: true });
     this.deletionChallenges = new Map();
     this.restoreChallenges = new Map();
+    this.backupWarning = "";
     this.state = this.#read();
   }
 
@@ -51,7 +53,7 @@ class CompetitionStore {
       rounds:rounds(this.state).map(round => { let slot; try { slot=assignment(this.state,team.id,round); } catch { slot=null; }
         return { ...slot, athlete:this.state.athletes.find(a=>a.teamId===team.id && a.round===round),
           score:this.state.roundScores.find(s=>s.teamId===team.id && s.round===round) ?? null }; }) }));
-    return structuredClone({ ...this.state, eventConfig:this.state.settings, standings, liveStandings, itemLeaderboards, team_scores,
+    return structuredClone({ ...this.state, backupWarning:this.backupWarning, eventConfig:this.state.settings, standings, liveStandings, itemLeaderboards, team_scores,
       combinedTeams, individualLeaderboard:individualLeaderboard(this.state) });
   }
 
@@ -297,6 +299,7 @@ class CompetitionStore {
     } catch(error) {
       fs.rmSync(temp,{force:true});fs.rmSync(automatic,{force:true});this.state=previous;throw error;
     }
+    this.backupWarning="";
     this.restoreChallenges.clear();this.deletionChallenges.clear();return this.view();
   }
 
@@ -402,7 +405,7 @@ class CompetitionStore {
       fs.renameSync(this.resetBackupPath,this.backupPath);
       throw error;
     }
-    this.state=fresh;
+    this.state=fresh;this.backupWarning="";
     this.deletionChallenges.clear();this.restoreChallenges.clear();
     fs.rmSync(this.resetBackupPath,{recursive:true,force:true,maxRetries:3,retryDelay:100});
     return this.view();
@@ -464,9 +467,9 @@ class CompetitionStore {
       const old=findDiscipline(this.state,d.id),results=this.state.results.filter(r=>r.disciplineId===d.id);
       const hasData=results.length||this.state.participantProfiles.some(p=>p.disciplineId===d.id&&(p.name||p.photo));
       if(old.mode!==d.mode&&hasData)throw Error('روش زمانی یا امتیازی رشته دارای داده قابل تغییر نیست؛ برای روش تازه از رشته سفارشی استفاده کنید.');
-      if(results.some(r=>r.scientificEntries?.some(e=>e.score>d.maxScore)))throw Error('سقف امتیاز نمی‌تواند از امتیاز ثبت‌شده کمتر باشد.');
-      if(results.some(r=>r.legacyScientific)&&['participantCount','maxScore','aggregation'].some(k=>old[k]!==d[k]))throw Error('نتیجه قدیمی بدون ریزنمرات دارد؛ ابتدا ریزنمرات واقعی را ثبت کنید.');
-      if(['mode','participantCount','maxScore','aggregation','bestCount'].some(key=>old[key]!==d[key]))affected.add(d.id);
+      if(d.mode==='score'&&results.some(r=>r.scientificEntries?.some(e=>e.score>d.maxScore)))throw Error('سقف امتیاز نمی‌تواند از امتیاز ثبت‌شده کمتر باشد.');
+      if(results.some(r=>r.legacyScientific)&&scoringRuleChanged(old,d))throw Error('نتیجه قدیمی بدون ریزنمرات دارد؛ ابتدا ریزنمرات واقعی را ثبت کنید.');
+      if(scoringRuleChanged(old,d))affected.add(d.id);
     }
     this.state.disciplineCatalog=next;migrateDisciplines(this.state);migrateCombined(this.state);migrateParticipants(this.state);
     for(const r of [...this.state.results])if(affected.has(r.disciplineId)){
@@ -586,9 +589,23 @@ class CompetitionStore {
       throw error;
     }
     const stamp = new Date().toISOString().replace(/[:.]/g, "-");
-    fs.copyFileSync(this.dataPath, path.join(this.backupPath, `backup-${stamp}.json`));
-    const backups = fs.readdirSync(this.backupPath).filter((name) => name.endsWith(".json")).sort().reverse();
-    backups.slice(25).forEach((name) => fs.unlinkSync(path.join(this.backupPath, name)));
+    const backup=path.join(this.backupPath,`backup-${stamp}-${this.state.revision}.json`),partial=`${backup}.tmp`;
+    this.backupWarning="";
+    try {
+      fs.mkdirSync(this.backupPath,{recursive:true});
+      fs.copyFileSync(this.dataPath,partial);
+      fs.renameSync(partial,backup);
+    } catch {
+      try { fs.rmSync(partial,{force:true}); } catch { /* A partial file is never listed as a backup. */ }
+      this.backupWarning="داده‌ها ذخیره و به‌روز شدند، اما پشتیبان خودکار ساخته نشد. از دکمه «نسخه پشتیبان» یک کپی دستی بگیرید.";
+      return;
+    }
+    try {
+      const backups=fs.readdirSync(this.backupPath).filter(name=>name.endsWith(".json")).sort().reverse();
+      backups.slice(25).forEach(name=>fs.unlinkSync(path.join(this.backupPath,name)));
+    } catch {
+      this.backupWarning="داده و پشتیبان جدید ذخیره شدند، اما پاک‌سازی پشتیبان‌های قدیمی انجام نشد.";
+    }
   }
 }
 

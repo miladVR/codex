@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; object-src 'none'; base-uri 'none'; form-action 'none'">
   <title>سامانه امتیازدهی آتش‌نشانان ایمیدرو</title>
   <link rel="stylesheet" href="styles.css"><link rel="stylesheet" href="brand.css"><link rel="stylesheet" href="help.css"><link rel="stylesheet" href="assignment.css">
   <link rel="stylesheet" href="theme.css">
@@ -12,7 +13,7 @@
     <aside class="sidebar">
       <div class="brand"><img class="admin-logo" src="../assets/competition-logo.jpg" alt="نشان مسابقات آتش‌نشانان ایمیدرو"><div><strong>IMIDRO RESCUE</strong><small>مرکز فرماندهی مسابقه</small></div></div>
       <nav id="nav">
-        <button class="nav-item active" data-view="dashboard">◫ تابلوی نتایج</button>
+        <button class="nav-item active" data-view="dashboard" aria-current="page">◫ تابلوی نتایج</button>
         <button class="nav-item" data-view="guide">؟ راهنمای نرم‌افزار</button>
         <button class="nav-item" data-view="entry">⏱ ثبت نتیجه</button>
         <button class="nav-item" data-view="approvals">✓ تأیید سرداور <span id="draft-badge"></span></button>
@@ -27,8 +28,8 @@
       <button id="reset-all" class="btn danger reset-all">پاک‌کردن همه داده‌ها و شروع از صفر</button>
     </aside>
     <main>
-      <header><div><div class="header-heading"><h1 id="view-title">تابلوی نتایج</h1><button id="view-help" class="help-icon" aria-label="راهنمای این بخش" type="button">؟</button></div><p id="venue"></p></div><div class="header-actions"><img id="admin-secondary-logo" class="admin-secondary-logo" alt="لوگوی سمت چپ" hidden><button id="backup-btn" class="btn ghost">نسخه پشتیبان</button><button id="display-btn" class="btn primary">بازکردن نمایشگر دوم</button></div></header>
-      <section id="content"></section><footer class="org-credit">امور آموزش و توسعه شایستگی مجتمع مس سرچشمه رفسنجان</footer>
+      <header><div><div class="header-heading"><h1 id="view-title" tabindex="-1">تابلوی نتایج</h1><button id="view-help" class="help-icon" aria-label="راهنمای این بخش" type="button">؟</button></div><p id="venue"></p></div><div class="header-actions"><img id="admin-secondary-logo" class="admin-secondary-logo" alt="لوگوی سمت چپ" hidden><button id="backup-btn" class="btn ghost">نسخه پشتیبان</button><button id="display-btn" class="btn primary">بازکردن نمایشگر دوم</button></div></header>
+      <p id="backup-warning" class="backup-warning" role="status" hidden></p><section id="content"></section><footer class="org-credit">امور آموزش و توسعه شایستگی مجتمع مس سرچشمه رفسنجان</footer>
     </main>
   </div>
   <div id="toast" role="status" aria-live="polite"></div>

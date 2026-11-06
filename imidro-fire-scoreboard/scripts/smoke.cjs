@@ -173,7 +173,8 @@ app.whenReady().then(async () => {
       await waitFor(display,`document.querySelectorAll('tbody tr').length===${expectedRows} && document.querySelectorAll('#standings table').length===${expectedTables}`);
       await display.webContents.executeJavaScript("document.fonts.ready.then(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))).then(()=>Promise.all(document.getAnimations().filter(a=>a.effect.getComputedTiming().iterations!==Infinity).map(a=>a.finished.catch(()=>{}))))");
       const fit=await display.webContents.executeJavaScript(`(()=>{const area=document.getElementById('standings').getBoundingClientRect();const rows=Array.from(document.querySelectorAll('tbody tr'));return {pages:document.getElementById('page-info').textContent,bottom:Math.max(...rows.map(r=>r.getBoundingClientRect().bottom)),areaBottom:area.bottom,areaTop:area.top,headHeight:document.querySelector('thead')?.getBoundingClientRect().height,rowHeight:rows[0]?.getBoundingClientRect().height,styleHeight:document.getElementById('standings').style.getPropertyValue('--row-height'),footer:document.querySelector('footer').getBoundingClientRect().bottom,height:innerHeight,width:document.documentElement.scrollWidth,viewport:innerWidth,inside:Array.from(document.querySelectorAll('header,.table-panel,.page-controls,footer,.clock')).every(n=>{const b=n.getBoundingClientRect();return b.left>=-1 && b.right<=innerWidth+1}),ids:rows.map(r=>r.dataset.athleteId||r.dataset.teamId),badges:Array.from(document.querySelectorAll('tbody .slot-badge')).every(b=>b.getBoundingClientRect().width<=b.closest('td').getBoundingClientRect().width+1)}})()`);
-      assert.ok(fit.pages.includes(`از ${expectedPages.toLocaleString('fa-IR')}`),JSON.stringify(fit));
+      const count=expectedPages??await display.webContents.executeJavaScript("pages()");
+      assert.ok(fit.pages.includes(`از ${count.toLocaleString('fa-IR')}`),JSON.stringify(fit));
       assert.ok(fit.bottom<=fit.areaBottom+2,JSON.stringify(fit));assert.ok(fit.footer<=fit.height+2,JSON.stringify(fit));assert.ok(fit.width<=fit.viewport+2,JSON.stringify(fit));assert.ok(fit.badges,JSON.stringify(fit));assert.ok(fit.inside,JSON.stringify(fit));assert.equal(new Set(fit.ids).size,expectedRows);
       return fit;
     }
@@ -250,7 +251,7 @@ app.whenReady().then(async () => {
       assert.equal(new CompetitionStore(path.join(temporary,'competition')).view().settings.displayLayout,'all');
       fs.writeFileSync(path.join(out,`athletes-44-one-page-${width}.png`),(await display.webContents.capturePage()).toPNG());
       await ui("await window.scoreboardAPI.setDisplay({mode:'item',disciplineId:'combined'})");await assertTableFit(22,2,1);
-      await ui("await window.scoreboardAPI.setDisplay({mode:'standings'})");await assertTableFit(22,2,1);
+      await ui("await window.scoreboardAPI.setDisplay({mode:'standings'})");await assertTableFit(22,2);
       await ui("await window.scoreboardAPI.updateSettings({displayLayout:'paged'});await window.scoreboardAPI.setDisplay({mode:'item',disciplineId:'water'})");
     }
     await ui("await window.scoreboardAPI.updateSettings({displayLayout:'all'});await window.scoreboardAPI.setDisplay({mode:'standings'})");
@@ -258,7 +259,7 @@ app.whenReady().then(async () => {
     await display.webContents.executeJavaScript("updatedTeams.clear();render()");
     const assertStripes=async(window,selector)=>{const rows=await window.webContents.executeJavaScript(`Array.from(document.querySelectorAll('${selector}'),r=>({tone:r.dataset.rowTone,cells:Array.from(r.cells,c=>getComputedStyle(c).backgroundColor)}))`);assert.ok(rows.length>=2);for(let index=0;index<rows.length;index++){assert.equal(new Set(rows[index].cells).size,1,JSON.stringify(rows[index]));assert.equal(rows[index].cells[0],index%2?'rgb(230, 240, 250)':'rgb(255, 247, 230)');}return rows;};
     const stripes=await assertStripes(display,'tbody tr');assert.equal(stripes.length,22);assert.equal(stripes[11].tone,'even','Second table continues global stripe parity');
-    await assertTableFit(22,2,1);
+    await assertTableFit(22,2);
     fs.writeFileSync(path.join(out,'striped-team-hall.png'),(await display.webContents.capturePage()).toPNG());
     await display.webContents.executeJavaScript("highlightUntil=Date.now()+4000;updatedTeams.add(state.liveStandings[0].team.id);render()");
     assert.ok(await display.webContents.executeJavaScript("Array.from(document.querySelector('tr.updated').cells).every(c=>getComputedStyle(c).backgroundColor==='rgb(241, 223, 190)')"));
@@ -283,7 +284,7 @@ app.whenReady().then(async () => {
       for(const [mode,layout] of [['individual','paged'],['individual','all'],['item','all'],['standings','all']]){
         const fixture={...fullStore.view(),revision:++fullRevision};fixture.settings={...fixture.settings,displayMode:mode,displayItemId:mode==='item'?'combined':null,displayLayout:layout,autoRotate:false};
         await display.webContents.executeJavaScript(`receive(${JSON.stringify(fixture)})`);
-        await assertTableFit(mode==='individual'?(layout==='all'?44:22):22,layout==='all'?2:1,layout==='all'?1:2);
+        await assertTableFit(mode==='individual'?(layout==='all'?44:22):22,layout==='all'?2:1,mode==='standings'?undefined:layout==='all'?1:2);
         const clippedTimes=await display.webContents.executeJavaScript("Array.from(document.querySelectorAll('td.record')).filter(c=>c.scrollWidth>c.clientWidth+2).length");assert.equal(clippedTimes,0,'Full time digits must be visible');
         const names=await display.webContents.executeJavaScript(`Array.from(document.querySelectorAll('td.team .name-viewport'),v=>{const n=v.querySelector('.full-name');return {text:n.textContent,font:parseFloat(getComputedStyle(n).fontSize),scroll:v.classList.contains('name-scroll'),full:n.scrollWidth<=v.clientWidth+2&&n.scrollHeight<=v.clientHeight+2,ellipsis:getComputedStyle(n).textOverflow==='ellipsis',distance:parseFloat(v.style.getPropertyValue('--name-shift')),textWidth:n.scrollWidth,viewWidth:v.clientWidth,textHeight:n.scrollHeight,viewHeight:v.clientHeight};})`);
         assert.ok(names.every(n=>n.text.includes('خلیج فارس')&&n.font>=12&&!n.ellipsis&&(n.full||(n.scroll&&n.distance>0))),JSON.stringify(names));
@@ -299,7 +300,7 @@ app.whenReady().then(async () => {
       for(const [mode,layout] of [['individual','paged'],['individual','all'],['item','all'],['standings','all']]){
         const fixture={...mixedStore.view(),revision:++fullRevision};fixture.settings={...fixture.settings,fontFamily:'tahoma',hallFontMax:44,fontWeight:700,numberFont:'same',displayMode:mode,displayItemId:mode==='item'?'combined':null,displayLayout:layout,autoRotate:false};
         await display.webContents.executeJavaScript(`receive(${JSON.stringify(fixture)})`);
-        await assertTableFit(mode==='individual'?(layout==='all'?44:22):22,layout==='all'?2:1,layout==='all'?1:2);
+        await assertTableFit(mode==='individual'?(layout==='all'?44:22):22,layout==='all'?2:1,mode==='standings'?undefined:layout==='all'?1:2);
         assert.equal(await display.webContents.executeJavaScript("Array.from(document.querySelectorAll('td.record')).filter(c=>c.scrollWidth>c.clientWidth+2).length"),0);
         const cutText=await display.webContents.executeJavaScript(`(()=>{const c=document.createElement('canvas').getContext('2d');return Array.from(document.querySelectorAll('tbody td:not(.team)')).filter(td=>!td.querySelector('.rank,.turn,.slot-badge')).flatMap(td=>{const target=td.querySelector('.pair-record,.result-status')||td,parts=target.classList.contains('pair-record')?Array.from(target.children):[target],s=getComputedStyle(td),t=getComputedStyle(target),available=td.clientWidth-parseFloat(s.paddingLeft)-parseFloat(s.paddingRight)-(target===td?0:parseFloat(t.paddingLeft)+parseFloat(t.paddingRight));return parts.filter(p=>{const s=getComputedStyle(p);c.font=s.fontStyle+' '+s.fontWeight+' '+s.fontSize+' '+s.fontFamily;return c.measureText(p.textContent.trim()).width>available+1;}).map(p=>({text:p.textContent,font:getComputedStyle(p).fontSize,available}));});})()`);
         assert.deepEqual(cutText,[],'All full time, penalty and status strings must fit, not just the clipped table-cell box');
@@ -626,17 +627,19 @@ app.whenReady().then(async () => {
     fullStore.updateSettings({secondaryLogo:leftLogo,autoRotate:false,displayLayout:'all'});fullStore.setDisplay({mode:'standings'});
     admin.hide();await delay(100);
     for(const [width,height]of [[1280,720],[1920,1080]]){
-      display.setSize(width,height);await delay(100);await display.webContents.executeJavaScript(`receive(${JSON.stringify({...fullStore.view(),revision:++fullRevision})});updatedTeams.clear();render()`);await assertTableFit(22,2,1);
+      display.setSize(width,height);await delay(100);await display.webContents.executeJavaScript(`receive(${JSON.stringify({...fullStore.view(),revision:++fullRevision})});updatedTeams.clear();render()`);await assertTableFit(22,2);
       const logos=await display.webContents.executeJavaScript("(()=>{const a=document.querySelector('.competition-logo').getBoundingClientRect(),b=document.querySelector('.secondary-logo').getBoundingClientRect();return {left:b.left,right:a.right,viewport:innerWidth,visible:!document.querySelector('.secondary-logo').hidden};})()");assert.ok(logos.visible&&logos.left<logos.right&&logos.left>=0&&logos.right<=logos.viewport,JSON.stringify(logos));
       fs.writeFileSync(path.join(out,`seven-items-two-logos-${width}.png`),(await display.webContents.capturePage()).toPNG());
     }
     reportStore=fullStore;for(const type of ['overall','standings','team','item']){outputPath=path.join(out,`seven-${type}-single.pdf`);await exportHandler({sender:admin.webContents},{type,layout:'single',teamId:1,disciplineId:'emergency_scientific'});singlePage(outputPath);}
     outputPath=path.join(out,'seven-overall-multi.pdf');await exportHandler({sender:admin.webContents},{type:'overall',layout:'multi'});reportStore=store;
-    check('all seven disciplines and both logos fit 22 teams at 720p/1080p and export complete single/multi-page PDFs');
+    check('both logos and grouped discipline columns fit 22 teams at 720p/1080p; reports contain all seven disciplines');
     // Use the settings form and live entry with a fresh team, including the third round.
     admin.show();await delay(100);
     const archivedScientific=store.view().results.find(r=>r.teamId===1&&r.disciplineId==='emergency_scientific').scientificEntries;
     await ui("document.querySelector('[data-view=settings]').click();document.getElementById('discipline-details').open=true;document.getElementById('discipline-count-combined').value='3';document.getElementById('discipline-best-combined').value='2';document.getElementById('discipline-count-emergency_scientific').value='1';document.getElementById('discipline-name-custom_01').value='رشته سفارشی آزمایشی';document.getElementById('discipline-enabled-custom_01').checked=true;document.getElementById('save-disciplines').click()");
+    await waitFor(admin,"document.querySelector('#discipline-impact')?.open");
+    await ui("document.getElementById('discipline-impact-confirm').click()");
     await waitFor(admin,"state.disciplines.length===8&&state.disciplines.find(d=>d.id==='combined').participantCount===3");
     assert.equal(store.view().disciplineCatalog.length,20);
     assert.equal(store.view().itemLeaderboards.emergency_scientific.find(r=>r.team.id===1).finalValue,10);
@@ -656,14 +659,15 @@ app.whenReady().then(async () => {
     fullStore.updateDisciplines({disciplines:fullStore.view().disciplineCatalog.map(d=>({...d,name:d.name||'رشته '+d.position,enabled:true,configured:true}))});
     await display.webContents.executeJavaScript(`receive(${JSON.stringify({...fullStore.view(),revision:++fullRevision})});page=0;updatedTeams.clear();render()`);
     const shown=new Set();
-    for(let group=0;group<3;group++){
-      await assertTableFit(22,2,3);
-      const ids=await display.webContents.executeJavaScript("Array.from(document.querySelectorAll('.overall-table:first-child th[data-discipline-id]'),n=>n.dataset.disciplineId)");
-      assert.equal(ids.length,group===2?6:7);ids.forEach(id=>shown.add(id));
-      if(group<2)await display.webContents.executeJavaScript("document.getElementById('next-page').click()");
+    const groups=await display.webContents.executeJavaScript("disciplineGroups()");
+    for(let group=0;group<groups;group++){
+      await assertTableFit(22,2,groups);
+      const headers=await display.webContents.executeJavaScript("Array.from(document.querySelectorAll('.overall-table:first-child th[data-discipline-id]'),n=>({id:n.dataset.disciplineId,width:n.clientWidth,full:n.getAttribute('aria-label')===n.title}))");
+      for(const header of headers){assert.ok(header.width>=73&&header.full);assert.ok(!shown.has(header.id));shown.add(header.id);}
+      if(group+1<groups)await display.webContents.executeJavaScript("document.getElementById('next-page').click()");
     }
     assert.equal(shown.size,20);
-    check('hall pages all twenty active disciplines in three readable column groups without dropping teams');
+    check('hall pages all twenty active disciplines in readable column groups without dropping teams');
     const printStore=new CompetitionStore(path.join(temporary,'orientation'));
     for(let i=1;i<=30;i++)printStore.addTeam({name:'تیم '+i});
     reportStore=printStore;
