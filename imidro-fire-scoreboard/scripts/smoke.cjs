@@ -637,7 +637,7 @@ app.whenReady().then(async () => {
     // Use the settings form and live entry with a fresh team, including the third round.
     admin.show();await delay(100);
     const archivedScientific=store.view().results.find(r=>r.teamId===1&&r.disciplineId==='emergency_scientific').scientificEntries;
-    await ui("document.querySelector('[data-view=settings]').click();document.getElementById('discipline-details').open=true;document.getElementById('discipline-count-combined').value='3';document.getElementById('discipline-best-combined').value='2';document.getElementById('discipline-count-emergency_scientific').value='1';document.getElementById('discipline-name-custom_01').value='رشته سفارشی آزمایشی';document.getElementById('discipline-enabled-custom_01').checked=true;document.getElementById('save-disciplines').click()");
+    await ui("document.querySelector('[data-view=settings]').click();document.getElementById('discipline-details').open=true;const count=document.getElementById('discipline-count-combined');count.value='3';count.dispatchEvent(new Event('change'));document.getElementById('discipline-best-combined').value='2';document.getElementById('discipline-count-emergency_scientific').value='1';document.getElementById('discipline-name-custom_01').value='رشته سفارشی آزمایشی';document.getElementById('discipline-enabled-custom_01').checked=true;document.getElementById('save-disciplines').click()");
     await waitFor(admin,"document.querySelector('#discipline-impact')?.open");
     await ui("document.getElementById('discipline-impact-confirm').click()");
     await waitFor(admin,"state.disciplines.length===8&&state.disciplines.find(d=>d.id==='combined').participantCount===3");
@@ -656,6 +656,24 @@ app.whenReady().then(async () => {
     assert.equal(store.view().individualLeaderboard.filter(r=>r.team.id===newTeam&&r.rank!=null).length,3);
     fs.writeFileSync(path.join(out,'best-two-of-three.png'),(await admin.webContents.capturePage()).toPNG());
     check('real independent entry ranks all three athletes and computes best two penalized times');
+    await ui("document.querySelector('[data-view=settings]').click();document.getElementById('discipline-details').open=true");
+    const chooseCounts = async (count,best) => admin.webContents.executeJavaScript(`(()=>{const input=document.getElementById('discipline-count-combined'), select=document.getElementById('discipline-best-combined'); input.value='${count}';input.dispatchEvent(new Event('change'));if(${best??'null'}!==null)select.value=String(${best??'null'});return {values:Array.from(select.options).slice(1).map(option=>Number(option.value)),value:select.value}})()`);
+    assert.deepEqual(await chooseCounts(10,10),{values:[1,2,3,4,5,6,7,8,9,10],value:'10'});
+    assert.deepEqual(await chooseCounts(3),{values:[1,2,3],value:''});
+    await ui("document.getElementById('save-disciplines').click()");
+    assert.equal(await admin.webContents.executeJavaScript("Boolean(document.querySelector('#discipline-impact'))"),false);
+    assert.equal(store.view().disciplines.find(d=>d.id==='combined').bestCount,2);
+    assert.deepEqual(await chooseCounts(3,3),{values:[1,2,3],value:'3'});
+    const threeScores=store.view().roundScores;
+    await ui("document.getElementById('save-disciplines').click()");
+    await waitFor(admin,"document.querySelector('#discipline-impact')?.open");
+    await ui("document.getElementById('discipline-impact-confirm').click()");
+    await waitFor(admin,"state.disciplines.find(d=>d.id==='combined').bestCount===3");
+    assert.deepEqual(store.view().roundScores,threeScores);
+    assert.equal(store.view().itemLeaderboards.combined.find(r=>r.team.id===newTeam).finalValue,160000/3);
+    assert.deepEqual(store.view().results.find(r=>r.teamId===newTeam&&r.disciplineId==='combined').combinedSelectedRounds,[2,3,1]);
+    check('live combined options expand to ten, require a new choice after reducing the limit and recalculate existing results with all three');
+
     fullStore.updateDisciplines({disciplines:fullStore.view().disciplineCatalog.map(d=>({...d,name:d.name||'رشته '+d.position,enabled:true,configured:true}))});
     await display.webContents.executeJavaScript(`receive(${JSON.stringify({...fullStore.view(),revision:++fullRevision})});page=0;updatedTeams.clear();render()`);
     const shown=new Set();

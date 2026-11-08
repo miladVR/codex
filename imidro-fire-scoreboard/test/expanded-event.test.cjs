@@ -37,6 +37,22 @@ test('five athletes best three and ten-athlete bounds; expanding frozen rounds a
  assert.deepEqual(validateSnapshot(new CompetitionStore(dir).view()).roundScores,state.roundScores);
  for(const patch of [{participantCount:11},{participantCount:2,bestCount:3},{bestCount:0}]){const before=store.view();assert.throws(()=>configure(store,{combined:patch}));assert.deepEqual(store.view(),before);}
 });
+test('all ten combined times count when selected, and a revised average preserves the submitted rounds',t=>{
+ const {store,dir}=fixture(t);store.addTeam({name:'تیم'});
+ configure(store,{combined:{participantCount:10,bestCount:10}});
+ for(let round=1;round<=10;round++)store.saveRoundScore({teamId:1,round,rawMs:40000+round*1000,penaltyMs:round===1?10000:0});
+ const before=store.approveResult({resultId:store.view().results[0].id});
+ assert.equal(before.itemLeaderboards.combined[0].finalValue,46500);
+ assert.equal(before.results[0].combinedSelectedRounds.length,10);
+ const revised=configure(store,{combined:{bestCount:3}});
+ assert.equal(revised.itemLeaderboards.combined[0].finalValue,43000);
+ assert.deepEqual(revised.results[0].combinedSelectedRounds,[2,3,4]);
+ assert.equal(revised.results[0].status,'draft');
+ assert.deepEqual(revised.roundScores,before.roundScores);
+ const reopened=new CompetitionStore(dir).view();
+ assert.equal(reopened.disciplines.find(d=>d.id==='combined').bestCount,3);
+ assert.equal(reopened.itemLeaderboards.combined[0].finalValue,43000);
+});
 test('v7 backups expand to 20 inactive-compatible slots without changing scores, identities, photos or frozen lanes',t=>{
  const {store}=fixture(t);store.addTeam({name:'تیم'});store.saveRoundScore({teamId:1,round:1,rawMs:60000});store.saveRoundScore({teamId:1,round:2,rawMs:50000});store.approveResult({resultId:store.view().results[0].id});const old=store.view();old.version=7;old.disciplineCatalog=old.disciplineCatalog.slice(0,7);delete old.disciplineCatalog[1].bestCount;const saved=structuredClone(old);
  const migrated=validateSnapshot(old);assert.equal(migrated.version,8);assert.equal(migrated.disciplineCatalog.length,20);assert.equal(migrated.disciplines.length,5);for(const key of ['results','roundScores','combinedSlots','participantProfiles'])assert.deepEqual(migrated[key],saved[key]);assert.deepEqual(old,saved);
